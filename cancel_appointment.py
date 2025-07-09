@@ -11,8 +11,9 @@ class CancelState(TypedDict):
 
     # Step 2: Define node logic to cancel appointment
 
+
 @tool(description="Cancel a user's appointment using their email.")
-def cancel_appointment(state: CancelState) -> CancelState:
+def cancel_appointment(state: CancelState) -> str:
     email_to_cancel = state["emailId"]
     updated_lines = []
     cancelled = False
@@ -31,7 +32,7 @@ def cancel_appointment(state: CancelState) -> CancelState:
             f.writelines(updated_lines)
 
         state["cancelled"] = cancelled
-        state["message"] = (
+        return (
             "Appointment cancelled successfully."
             if cancelled
             else "No appointment found for the provided email."
@@ -39,8 +40,7 @@ def cancel_appointment(state: CancelState) -> CancelState:
 
     except FileNotFoundError:
         state["cancelled"] = False
-        state["message"] = "Appointment file not found."
-
+        return "Appointment file not found."
     return state
 
 

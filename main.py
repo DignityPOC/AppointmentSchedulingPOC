@@ -104,9 +104,9 @@ def run_gemini_agent(req: Req):
         "id_number": "U001",
     }
     final_state = gemini_graph.invoke(initial_state, config={"recursion_limit": 5})
-
-    # If routing is not FINISH, run the next agent node
-    if final_state.get("next") and final_state["next"] != "__end__":
+    
+        # Only re-invoke if last message is from Human
+    if (final_state.get("next") and final_state["next"] != "__end__" and isinstance(final_state["messages"][-1], HumanMessage)):
         final_state = gemini_graph.invoke(final_state, config={"recursion_limit": 5})
 
     return {

@@ -29,9 +29,6 @@ def build_gemini_graph():
 
     builder.add_edge("information_node", "supervisor")
     builder.add_edge("booking_node", "supervisor")
-
-    #builder.add_edge("information_node", "supervisor")
-    #builder.add_edge("booking_node", "supervisor")
     
     builder.set_entry_point("supervisor")
     return builder.compile()
