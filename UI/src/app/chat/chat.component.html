@@ -1,0 +1,29 @@
+<div class="chat-wrapper">
+  <div class="back-link">
+    <a routerLink="/" class="btn-back">← Back to Home</a>
+  </div>
+  <div class="chat-box" #chatBox>
+    <div *ngFor="let msg of messages" [ngClass]="msg.sender" class="message-row">
+      <div class="bubble">{{ msg.text }}</div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <input
+      type="text"
+      placeholder="Type your message..."
+      [(ngModel)]="userMessage"
+      [disabled]="isBotReplying"
+      (keyup.enter)="handleButtonClick()"
+    />
+
+    <button
+    class="send-button"
+    [ngClass]="isBotReplying ? 'stop' : 'send'"
+    (click)="handleButtonClick()"
+    [disabled]="!userMessage.trim() && !isBotReplying"
+    >
+      {{ isBotReplying ? '⏹' : '↑' }}
+    </button>
+  </div>
+</div>
