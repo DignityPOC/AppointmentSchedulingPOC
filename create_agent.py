@@ -22,17 +22,21 @@ from langchain_core.tools import tool
 from langchain_core.output_parsers import JsonOutputKeyToolsParser
 from cancel_appointment import cancel_appointment
 from schedule_appointment import schedule_appointment
+#from langgraph.graph.schema import ListAppend, StrOrMsg
+import time
+
 
 # Load env file
-env_path = 'environment.env'
+env_path = "environment.env"
 load_dotenv(env_path)
 
 # Instantiate Gemini LLM
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro",
+    # model="gemini-1.5-pro",
+    model="gemini-2.5-flash",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0,
+    temperature=0.3,
 )
 
 # Instantiate Gemini Embeddings
@@ -44,14 +48,15 @@ embeddings = GoogleGenerativeAIEmbeddings(
 
 class AgentState(TypedDict):
     messages: MessagesState
+    #messages: Annotated[list[StrOrMsg], ListAppend]
 
 
 @tool(description="Check availability of a doctor by name.")
 def check_availability_by_doctor(doctor_name: str) -> str:
     # Dummy logic — you can replace this with DB/API logic
     available_doctors = {
-        "Dr. John": "Available tomorrow at 10 AM",
-        "Dr. Jane": "Fully booked this week"
+        "Dr. Puneet": "Available tomorrow at 10 AM",
+        "Dr. Raj": "Fully booked this week",
     }
     return available_doctors.get(doctor_name, "Doctor not found.")
 
@@ -59,9 +64,9 @@ def check_availability_by_doctor(doctor_name: str) -> str:
 @tool(description="Check availability of doctors based on specialization.")
 def check_availability_by_specialization(specialization: str) -> str:
     if specialization.lower() == "cardiologist":
-        return "Dr. Heart is available on Monday and Thursday."
+        return "Dr. Puneet is available on Monday and Thursday."
     elif specialization.lower() == "dermatologist":
-        return "Dr. Skin is available on Wednesday."
+        return "Dr. Raj is available on Wednesday."
     else:
         return "No doctors available for that specialization right now."
 
@@ -86,18 +91,45 @@ information_agent = create_agent(
 
 booking_agent = create_agent(
     llm=llm,
-    tools=[ cancel_appointment, schedule_appointment],
+    tools=[cancel_appointment, schedule_appointment],
     system_prompt="""You are a specialized agent to set, cancel appointments based on the query. You have access to the tools. Ask the user politely if you need more information to proceed. Always assume the current year is 2025."""
 )
 
 
 # Nodes to invoke the agents
 def information_node(state: AgentState):
-    result = information_agent.invoke(state)
+    time.sleep(5)
+    valid_messages = [
+        msg
+        for msg in state["messages"]
+        if isinstance(msg, (HumanMessage, AIMessage)) and msg.content.strip() != ""
+    ]
+    print("VALID MESSAGES >>>", valid_messages)
+
+    try:
+        result = information_agent.invoke({"messages": valid_messages})
+        print("INFORMATION NODE RESULT >>>", result)
+    except Exception as e:
+        print("Error in information_node:", e)
+        return Command(
+            update={
+                "messages": state["messages"]
+                + [
+                    AIMessage(
+                        content="Sorry, something went wrong while fetching doctor availability."
+                    )
+                ]
+            },
+            goto="supervisor",
+        )
+
     return Command(
         update={
-            "messages": state["messages"] + [
-                AIMessage(content=result["messages"][-1].content, name="information_node")
+            "messages": state["messages"]
+            + [
+                AIMessage(
+                    content=result["messages"][-1].content, name="information_node"
+                )
             ]
         },
         goto="supervisor",
@@ -105,12 +137,41 @@ def information_node(state: AgentState):
 
 
 def booking_node(state: AgentState):
-    result = booking_agent.invoke(state)
+    time.sleep(2)
+    print("Booking node called.")
+    valid_messages = [
+        msg for msg in state["messages"]
+        if isinstance(msg, (HumanMessage, AIMessage)) and msg.content.strip() != ""
+    ]
+
+    try:
+        result = booking_agent.invoke({"messages": valid_messages})
+        print("BOOKING NODE RESULT >>>", result)
+        response_msg = result["messages"][-1].content.strip()
+    except Exception as e:
+        print("Error in booking_node:", e)
+        return Command(
+            update={
+                "messages": state["messages"]
+                + [AIMessage(content="Sorry, something went wrong while handling booking.")]
+            },
+            goto="supervisor",
+        )
+
+    # If result is empty, end the loop
+    if not response_msg:
+        return Command(
+            update={
+                "messages": state["messages"]
+                + [AIMessage(content="I'm sorry, I couldn't find enough information to proceed.")]
+            },
+            goto=END,
+        )
+
     return Command(
         update={
-            "messages": state["messages"] + [
-                AIMessage(content=result["messages"][-1].content, name="booking_node")
-            ]
+            "messages": state["messages"]
+            + [AIMessage(content=response_msg, name="booking_node")]
         },
         goto="supervisor",
     )
@@ -123,18 +184,28 @@ members_dict = {
 }
 options = list(members_dict.keys()) + ["FINISH"]
 
-worker_info = '\n\n'.join(
-    [f'WORKER: {member} \nDESCRIPTION: {description}' for member, description in members_dict.items()]
-) + '\n\nWORKER: FINISH \nDESCRIPTION: If user query is answered, route to FINISH.'
+worker_info = (
+    "\n\n".join(
+        [
+            f"WORKER: {member} \nDESCRIPTION: {description}"
+            for member, description in members_dict.items()
+        ]
+    )
+    + "\n\nWORKER: FINISH \nDESCRIPTION: If user query is answered, route to FINISH."
+)
 
-# System prompt for Gemini
+# system_prompt = "You manage routing between assistants for doctor info and appointment tasks. Choose the best one or finish."
 system_prompt = (
-    "You are a supervisor tasked with managing a conversation between the following specialized assistants.\n"
-    f"### SPECIALIZED ASSISTANTS:\n{worker_info}\n\n"
-    "Your primary role is to help the user make an appointment with the doctor or provide updates on FAQs and doctor's availability.\n"
-    "When a user asks something, choose the right assistant to handle it.\n"
-    "When the user's query has been fully answered, respond with FINISH.\n"
-    "Always provide reasoning for your routing decision."
+    "You are a supervisor tasked with managing a conversation between following workers. "
+    "### SPECIALIZED ASSISTANT:\n"
+    f"{worker_info}\n\n"
+    "Your primary role is to help the user make an appointment with the doctor and provide updates on FAQs and doctor's availability. "
+    "If a customer requests to know the availability of a doctor or to book, reschedule, or cancel an appointment, "
+    "delegate the task to the appropriate specialized workers. Given the following user request,"
+    " respond with the worker to act next. Each worker will perform a"
+    " task and respond with their results and status. When finished,"
+    " respond with FINISH."
+    "UTILIZE last conversation to assess if the conversation should end you answered the query, then route to FINISH "
 )
 
 # Define routing output schema
@@ -143,42 +214,100 @@ class Router(TypedDict):
     reasoning: Annotated[str, "Support proper reasoning for routing to the worker"]
 
 
-# Supervisor node
-def supervisor_node(state: AgentState) -> Command[Literal["information_node", "booking_node", "__end__"]]:
-    messages = [{"role": "system", "content": system_prompt}] + [state["messages"][-1]]
 
-    # Initial user query (used to restore context if re-routing)
-    query = ''
-    if len(state['messages']) == 1:
-        query = state['messages'][0].content
+def supervisor_node(
+    state: AgentState,
+) -> Command[Literal["information_node", "booking_node", "__end__"]]:
+    print("Routing from supervisor")
 
-    # Gemini LLM with output schema
-    response = llm.with_structured_output(Router).invoke(messages)
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in state["messages"]:
+        if isinstance(msg, (HumanMessage, AIMessage)):
+            messages.append(msg)
+
+    query = ""
+    if len(state["messages"]) == 1:
+        query = state["messages"][0].content
+
+    time.sleep(2)
+
+    try:
+        response = llm.with_structured_output(Router).invoke(messages)
+        print("SUPERVISOR RESPONSE >>>", response)
+    except Exception as e:
+        print("Error in supervisor_node LLM call:", e)
+        return Command(
+            update={
+                "messages": state["messages"]
+                + [
+                    AIMessage(
+                        content="Oops! I'm having trouble deciding the next step. Please try rephrasing."
+                    )
+                ]
+            },
+            goto="supervisor",  # You can also fallback to a default node like "information_node"
+        )
+
+    # Ensure proper dict structure
+    if not isinstance(response, dict) or "next" not in response:
+        return Command(
+            update={
+                "messages": state["messages"]
+                + [
+                    AIMessage(
+                        content="Sorry, I couldn't understand your request properly."
+                    )
+                ]
+            },
+            goto="supervisor",
+        )
+
     goto = response["next"]
     reasoning = response["reasoning"]
 
-    if goto == "FINISH":
+    # Break loop if last response is already from the same node and same query
+    last_two = state["messages"][-2:]
+    if (
+        len(state["messages"]) >= 2
+        and isinstance(last_two[-1], AIMessage)
+        and last_two[-1].name == "information_node"
+        and isinstance(last_two[-2], HumanMessage)
+        and goto == "information_node"
+    ):
+        print("Loop detected — finishing.")
         goto = END
 
-    # Update messages if it's the first turn
-    if query:
-        return Command(
-            goto=goto,
-            update={
-                "next": goto,
-                "query": query,
-                "cur_reasoning": reasoning,
-                "messages": [HumanMessage(content=f"user's identification number is {state['id_number']}")]
-            }
-        )
+
+    if goto == "FINISH" and len(state["messages"]) <= 2:
+       print("length of message = "+ len(state["messages"]))
+       print("inside goto == finish and set the goto = information_node to recall entire steps of infonode" )
+       goto = END
+        #goto = "information_node"
+
+    if goto == "FINISH":
+        goto = END
 
     return Command(
         goto=goto,
         update={
             "next": goto,
-            "cur_reasoning": reasoning
-        }
+            "query": query,
+            "cur_reasoning": reasoning,
+            "messages": state["messages"],
+        },
     )
+
+def safe_invoke(func, *args, retries=3, delay=5):
+    for attempt in range(retries):
+        try:
+            return func(*args)
+        except Exception as e:
+            if "quota" in str(e).lower() or "429" in str(e):
+                time.sleep(delay)
+            else:
+                raise
+    raise RuntimeError("Too many failed retries")
+
 
 # agent state
 class AgentState(TypedDict):
