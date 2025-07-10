@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from graph_logic import build_graph
 from schedule_appointment import build_appointment_graph
@@ -9,12 +9,15 @@ from typing import List, Optional
 from langchain_core.messages import BaseMessage
 from pydantic import parse_obj_as, BaseModel
 from typing import List, Optional, Literal
+from models import Patient
 
 app = FastAPI()
 graph = build_graph()
 schedule_graph = build_appointment_graph()
 cancel_schedule_graph = build_cancel_appointment_graph()
 gemini_graph = build_gemini_graph()
+# Doing in-memory storage
+patients_db: List[Patient] = []
 
 class ChatMessage(BaseModel):
     role: Literal["user", "ai", "human", "assistant"]
@@ -66,6 +69,32 @@ def CancelAppointment(req: CancelScheduleReq):
     initial_state = {"emailId": req.emailId}
     final_state = cancel_schedule_graph.invoke(initial_state)
     return {"Message": final_state["message"]}
+
+@app.post("/patients/", response_model=Patient, status_code=status.HTTP_201_CREATED)
+async def register_patient(patient: Patient):
+    """
+    Registers a new patient.
+    """
+    patient.id = f"patient_{len(patients_db) + 1}"
+    patients_db.append(patient)
+    return patient
+
+@app.get("/patients/", response_model=List[Patient])
+async def get_all_patients():
+    """
+    Retrieves a list of all registered patients.
+    """
+    return patients_db
+
+@app.get("/patients/{patient_id}", response_model=Patient)
+async def get_patient_by_id(patient_id: str):
+    """
+    Retrieves a single patient by its ID.
+    """
+    for patient in patients_db:
+        if patient.id == patient_id:
+            return patient
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
 @app.post("/gemini-agent")
 def run_gemini_agent(req: Req):
