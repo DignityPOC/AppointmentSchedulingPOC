@@ -1,15 +1,13 @@
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel
 from graph_logic import build_graph
 from schedule_appointment import build_appointment_graph
 from cancel_appointment import build_cancel_appointment_graph
 from gemini_graph import build_gemini_graph
 from langchain_core.messages import HumanMessage, AIMessage
-from typing import List, Optional
 from langchain_core.messages import BaseMessage
 from pydantic import parse_obj_as, BaseModel
 from typing import List, Optional, Literal
-from models import Patient
+from models import Patient, PatientVerificationByPhone, PatientVerificationBySsn
 
 app = FastAPI()
 graph = build_graph()
@@ -95,6 +93,48 @@ async def get_patient_by_id(patient_id: str):
         if patient.id == patient_id:
             return patient
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+@app.get("/patients/{patient_id}", response_model=Patient)
+async def get_patient_by_id(patient_id: str):
+    """
+    Retrieves a single patient by its ID.
+    """
+    for patient in patients_db:
+        if patient.id == patient_id:
+            return patient
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+@app.post("/verify_patient_by_phone_and_dob")
+async def verify_patient_by_phone_and_dob(patient_data: PatientVerificationByPhone):
+    """
+    Verify patient details.
+    """
+    for patient in patients_db:
+        if (patient_data.first_name == patient.first_name and
+                patient_data.last_name == patient.last_name and
+                patient_data.date_of_birth == patient.date_of_birth and
+                patient_data.phone_number == patient.phone_number):
+            return {"message": "Patient verified successfully!"}
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Patient not found or details do not match"
+    )
+
+"""
+@app.post("/verify_patient_by_ssn")
+async def verify_patient_by_ssn(patient_data: PatientVerificationBySsn):
+    for patient in patients_db:
+        if (patient_data.first_name == patient.first_name and
+                patient_data.last_name == patient.last_name and
+                patient_data.ssn == patient.ssn):
+            return {"message": "Patient verified successfully!"}
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Patient not found or details do not match"
+    )
+"""
 
 @app.post("/gemini-agent")
 def run_gemini_agent(req: Req):
