@@ -2,6 +2,7 @@ import { Component, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { ChatService } from '../services/chat-services';
 
 @Component({
   selector: 'app-chat',
@@ -16,6 +17,9 @@ export class ChatComponent implements AfterViewInit {
 
   @ViewChild('chatBox') chatBox!: ElementRef<HTMLDivElement>;
 
+
+  constructor(private chatService: ChatService) {}
+
   botReplyTimeout: any = null;
   isBotReplying = false;
 
@@ -27,7 +31,7 @@ export class ChatComponent implements AfterViewInit {
     if (this.isBotReplying) {
       this.stopReply();
     } else {
-      this.sendMessage();
+      this.sendMessageApi();
     }
   }
 
@@ -66,4 +70,37 @@ export class ChatComponent implements AfterViewInit {
       el.scrollTop = el.scrollHeight;
     }, 0);
   }
+
+  sendMessageApi() {
+    const message = this.userMessage.trim();
+    if (!message || this.isBotReplying) return;
+  
+    this.messages.push({ sender: 'user', text: message });
+    this.userMessage = '';
+    this.scrollToBottom();
+  
+    this.isBotReplying = true;
+  
+    this.chatService.sendMessageToApi(message)
+      .then(apiResponse => {
+        // Assuming apiResponse.choices[0].message.content contains the bot's text for OpenAI
+        const botReply = apiResponse.choices?.[0]?.message?.content || 'Sorry, I could not get a response.';
+        this.messages.push({
+          sender: 'bot',
+          text: botReply
+        });
+        this.isBotReplying = false;
+        this.scrollToBottom();
+      })
+      .catch(error => {
+        console.error('Error fetching bot response:', error);
+        this.messages.push({
+          sender: 'bot',
+          text: 'An error occurred. Please try again.'
+        });
+        this.isBotReplying = false;
+        this.scrollToBottom();
+      });
+  }
+  
 }

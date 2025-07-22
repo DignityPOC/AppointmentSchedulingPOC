@@ -1,29 +1,41 @@
-<div class="chat-wrapper">
-  <div class="back-link">
-    <a routerLink="/" class="btn-back">← Back to Home</a>
-  </div>
-  <div class="chat-box" #chatBox>
-    <div *ngFor="let msg of messages" [ngClass]="msg.sender" class="message-row">
-      <div class="bubble">{{ msg.text }}</div>
+<div class="main-container">
+  <section class="expectations-container">
+    <div class="back-link">
+      <a routerLink="/" class="btn-back">← Back to Home</a>
     </div>
-  </div>
+    <h2>What to Expect from Our Chatbot</h2>
+    <ul>
+      <li>Helps you book, reschedule, and cancel doctor appointments.</li>
+      <li>
+        May require basic information to verify your account, including your
+        name, age, last 4 digits of your Social Security Number (SSN), or the
+        last 4 digits of your mobile number.
+      </li>
+    </ul>
+  </section>
 
-  <div class="input-area">
-    <input
-      type="text"
-      placeholder="Type your message..."
-      [(ngModel)]="userMessage"
-      [disabled]="isBotReplying"
-      (keyup.enter)="handleButtonClick()"
-    />
-
-    <button
-    class="send-button"
-    [ngClass]="isBotReplying ? 'stop' : 'send'"
-    (click)="handleButtonClick()"
-    [disabled]="!userMessage.trim() && !isBotReplying"
-    >
-      {{ isBotReplying ? '⏹' : '↑' }}
-    </button>
+  <div class="chat-wrapper" #chatBox>
+    <div class="chat-box">
+      <div *ngFor="let msg of messages" [ngClass]="msg.sender" class="message-row">
+        <div class="bubble">{{ msg.text }}</div>
+      </div>
+    </div>
+    <div class="input-area">
+      <input
+        type="text"
+        placeholder="Type your message..."
+        [(ngModel)]="userMessage"
+        [disabled]="isBotReplying"
+        (keyup.enter)="handleButtonClick()"
+      />
+      <button
+        class="send-button"
+        [ngClass]="isBotReplying ? 'stop' : 'send'"
+        (click)="handleButtonClick()"
+        [disabled]="!userMessage.trim() && !isBotReplying"
+      >
+        {{ isBotReplying ? '⏹' : '↑' }}
+      </button>
+    </div>
   </div>
 </div>
