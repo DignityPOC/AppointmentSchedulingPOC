@@ -84,7 +84,7 @@ export class ChatComponent implements AfterViewInit {
     this.chatService.sendMessageToApi(message)
       .then(apiResponse => {
         // Assuming apiResponse.choices[0].message.content contains the bot's text for OpenAI
-        const botReply = apiResponse.choices?.[0]?.message?.content || 'Sorry, I could not get a response.';
+        const botReply = apiResponse.response || 'Sorry, I could not get a response.';
         this.messages.push({
           sender: 'bot',
           text: botReply

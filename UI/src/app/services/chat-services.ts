@@ -7,7 +7,7 @@ import { lastValueFrom } from 'rxjs';
   
 })
 export class ChatService {
-  private apiUrl = 'localhost:8000/chat'; // Replace with your actual API endpoint
+  private apiUrl = 'http://localhost:8000/chat/'; // Replace with your actual API endpoint
 
   private apiKey = '';
   private apiOpenAiUrl = '';
