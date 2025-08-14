@@ -4,7 +4,7 @@ import json
 from typing_extensions import TypedDict, Annotated
 from typing import Literal
 
-from langchain_core.pydantic_v1 import constr, BaseModel, Field, validator
+'''from langchain_core.pydantic_v1 import constr, BaseModel, Field, validator'''
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts.chat import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import Runnable, RunnableConfig
@@ -30,7 +30,7 @@ load_dotenv(env_path)
 # Instantiate Gemini LLM
 
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
+    model="gemini-2.5-flash-lite",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
     temperature=0.3,
 )
