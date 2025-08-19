@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException, status
+
+from DB.database_connection import AppointmentManager
 from graph_logic import build_graph
 from schedule_appointment import build_appointment_graph
 from cancel_appointment import build_cancel_appointment_graph
@@ -16,6 +18,8 @@ cancel_schedule_graph = build_cancel_appointment_graph()
 gemini_graph = build_gemini_graph()
 # Doing in-memory storage
 patients_db: List[Patient] = []
+patients: []
+patient: Patient
 
 class ChatMessage(BaseModel):
     role: Literal["user", "ai", "human", "assistant"]
@@ -74,7 +78,10 @@ async def register_patient(patient: Patient):
     Registers a new patient.
     """
     patient.id = f"patient_{len(patients_db) + 1}"
-    patients_db.append(patient)
+    '''patients_db.append(patient)'''
+    manager = AppointmentManager()
+    manager.add_patient(patient.first_name, patient.last_name, patient.gender, patient.date_of_birth,
+                        patient.email, patient.phone_number, patient.address)
     return patient
 
 @app.get("/patients/", response_model=List[Patient])
@@ -82,16 +89,19 @@ async def get_all_patients():
     """
     Retrieves a list of all registered patients.
     """
-    return patients_db
+    manager = AppointmentManager()
+    return manager.get_all_patients()
+
 
 @app.get("/patients/{patient_id}", response_model=Patient)
 async def get_patient_by_id(patient_id: str):
     """
     Retrieves a single patient by its ID.
     """
-    for patient in patients_db:
-        if patient.id == patient_id:
-            return patient
+    manager = AppointmentManager()
+    patient = manager.get_patient_by_id(patient_id)
+    if patient is not None:
+        return patient
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
 @app.get("/patients/{patient_id}", response_model=Patient)
@@ -109,12 +119,10 @@ async def verify_patient_by_phone_and_dob(patient_data: PatientVerificationByPho
     """
     Verify patient details.
     """
-    for patient in patients_db:
-        if (patient_data.first_name == patient.first_name and
-                patient_data.last_name == patient.last_name and
-                patient_data.date_of_birth == patient.date_of_birth and
-                patient_data.phone_number == patient.phone_number):
-            return {"message": "Patient verified successfully!"}
+    manager = AppointmentManager()
+    patient = manager.verify_patient_by_phone_and_dob(patient_data)
+    if patient is not None:
+        return patient
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -180,7 +188,7 @@ def run_gemini_agent(req: Req):
 
     return {
         "messages": [
-            {"role": m.type, "content": m.content, "next": final_state.get("next")}
+            {"role": m.type, "content": m.content}
             for m in final_state["messages"]
         ],
         "reasoning": final_state.get("cur_reasoning", ""),

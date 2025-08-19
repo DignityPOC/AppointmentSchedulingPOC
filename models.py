@@ -4,14 +4,17 @@ from datetime import date
 import re
 
 class Patient(BaseModel):
-    id: Optional[str] = None  # Id should be set at the API or DB level
+    id: Optional[int]  # Id should be set at the API or DB level
     first_name: str
     last_name: str
     email: str
-    date_of_birth: date
+    date_of_birth: str
     gender: str
     phone_number: str
     address: Optional[str] = None
+
+
+
 
 class PatientVerificationByPhone(BaseModel):
     first_name: str = Field(min_length=1, max_length=50)
