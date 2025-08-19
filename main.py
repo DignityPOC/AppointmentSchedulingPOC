@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.messages import BaseMessage
 from pydantic import parse_obj_as, BaseModel
 from typing import List, Optional, Literal
-from models import Patient, PatientVerificationByPhone, PatientVerificationBySsn
+from models import Patient, PatientVerificationByPhone, PatientVerificationBySsn, Appointment, UpdateAppointment
 
 app = FastAPI()
 graph = build_graph()
@@ -37,9 +37,8 @@ class Req(BaseModel):
 
 
 class ScheduleReq(BaseModel):
-    firstName: str
-    lastName: str
-    emailId: str
+    patient_id: int
+    doctor_name: str
     date: str
     time: str
     
@@ -56,21 +55,18 @@ def process(req: Req):
 
 @app.post("/ScheduleAppointment")
 def ScheduleAppointment(req: ScheduleReq):
-    initial_state = {
-        "firstName": req.firstName,
-        "lastName": req.lastName,
-        "emailId": req.emailId,
-        "date": req.date,
-        "time": req.time,
-    }
-    final_state = schedule_graph.invoke(initial_state)
-    return {"Message": final_state["message"]}
+    manager = AppointmentManager()
+    return manager.schedule_appointment(req.patient_id, req.doctor_name, req.date, req.time)
 
 @app.post("/CancelAppointment")
-def CancelAppointment(req: CancelScheduleReq):
-    initial_state = {"emailId": req.emailId}
-    final_state = cancel_schedule_graph.invoke(initial_state)
-    return {"Message": final_state["message"]}
+def CancelAppointment(req: int):
+    manager = AppointmentManager()
+    return manager.cancel_appointment(req)
+
+@app.post("/RescheduleAppointment")
+def RescheduleAppointment(req: UpdateAppointment):
+    manager = AppointmentManager()
+    return manager.update_appointment_time(req.patient_id, req.new_appointment_date, req.new_appointment_time)
 
 @app.post("/patients/", response_model=Patient, status_code=status.HTTP_201_CREATED)
 async def register_patient(patient: Patient):
@@ -92,6 +88,14 @@ async def get_all_patients():
     manager = AppointmentManager()
     return manager.get_all_patients()
 
+
+@app.get("/appointments/", response_model=List[Appointment])
+async def get_all_appointments():
+    """
+    Retrieves a list of all registered patients.
+    """
+    manager = AppointmentManager()
+    return manager.get_all_appointments()
 
 @app.get("/patients/{patient_id}", response_model=Patient)
 async def get_patient_by_id(patient_id: str):
