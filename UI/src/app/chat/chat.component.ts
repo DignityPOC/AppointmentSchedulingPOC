@@ -13,12 +13,16 @@ import { ChatService } from '../services/chat-services';
 })
 export class ChatComponent implements AfterViewInit {
   userMessage = '';
+  sessionId = '';
   messages: { sender: 'user' | 'bot'; text: string }[] = [];
 
   @ViewChild('chatBox') chatBox!: ElementRef<HTMLDivElement>;
 
 
-  constructor(private chatService: ChatService) {}
+  constructor(private chatService: ChatService) {
+    this.sessionId = '';
+    this.sendMessageApi("Hello")
+  }
 
   botReplyTimeout: any = null;
   isBotReplying = false;
@@ -67,24 +71,33 @@ export class ChatComponent implements AfterViewInit {
   scrollToBottom() {
     setTimeout(() => {
       const el = this.chatBox?.nativeElement;
-      el.scrollTop = el.scrollHeight;
+      if (el) {
+        console.log("xxx scroll called");
+        el.scrollTop = el.scrollHeight;
+      } 
     }, 0);
   }
 
-  sendMessageApi() {
-    const message = this.userMessage.trim();
+  formattedText(message: string) {
+  return message.replace(/\n/g, '<br>'); 
+  }
+
+  sendMessageApi(welcome: string = '') {
+    const message =  welcome =='' ? this.userMessage.trim() : welcome;
     if (!message || this.isBotReplying) return;
   
+    if(welcome == '') {
     this.messages.push({ sender: 'user', text: message });
     this.userMessage = '';
     this.scrollToBottom();
+    }
   
     this.isBotReplying = true;
   
-    this.chatService.sendMessageToApi(message)
+    this.chatService.sendMessageToApi(message, this.sessionId)
       .then(apiResponse => {
-        // Assuming apiResponse.choices[0].message.content contains the bot's text for OpenAI
-        const botReply = apiResponse.response || 'Sorry, I could not get a response.';
+        const botReply = this.formattedText(apiResponse.reply) || 'Sorry, I could not get a response.';
+        this.sessionId = apiResponse.session_id
         this.messages.push({
           sender: 'bot',
           text: botReply

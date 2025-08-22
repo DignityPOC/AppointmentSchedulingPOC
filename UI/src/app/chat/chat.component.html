@@ -3,7 +3,7 @@
     <div class="back-link">
       <a routerLink="/" class="btn-back">← Back to Home</a>
     </div>
-    <h2>What to Expect from Our Chatbot</h2>
+    <h2>Your Appointment Assistant</h2>
     <ul>
       <li>Helps you book, reschedule, and cancel doctor appointments.</li>
       <li>
@@ -14,10 +14,10 @@
     </ul>
   </section>
 
-  <div class="chat-wrapper" #chatBox>
-    <div class="chat-box">
+  <div class="chat-wrapper">
+    <div class="chat-box" #chatBox>
       <div *ngFor="let msg of messages" [ngClass]="msg.sender" class="message-row">
-        <div class="bubble">{{ msg.text }}</div>
+        <p class="bubble" [innerHTML]="msg.text"></p>
       </div>
     </div>
     <div class="input-area">

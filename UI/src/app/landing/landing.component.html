@@ -1,5 +1,22 @@
-<section class="landing">
-    <h2>Welcome to Our Smart Appointment System</h2>
-    <p>Use our chatbot to quickly schedule a hospital appointment online.</p>
-    <a [routerLink]="['/chat']" class="btn-primary">Book an Appointment</a>
-</section>
+<main>
+<!-- Banner Section -->
+  <section class="banner">
+    <div class="banner-content">
+      <h1>Welcome to Our Service</h1>
+      <p>Your solution starts here.</p>
+      <a routerLink="/chat" class="btn-primary">👋 Chat with us</a>
+    </div>
+  </section>
+
+<!-- Services Section -->
+    <section class="services" id="services">
+    <h2>Hospital Services</h2>
+    <div class="cards">
+        <div class="card" *ngFor="let service of services">
+        <div class="service-icon">{{ service.icon }}</div>
+        <h3>{{ service.title }}</h3>
+        <p>{{ service.description }}</p>
+        </div>
+    </div>
+    </section>
+</main>

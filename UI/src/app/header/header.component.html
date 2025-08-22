@@ -1,0 +1,13 @@
+<header>
+  <nav class="navbar">
+    <div (click)="navigateToHome()" class="site-branding">
+      <img src="https://tse2.mm.bing.net/th/id/OIP.dBWrnz_JaArn7suvoHnmsgHaHa?rs=1&pid=ImgDetMain&o=7&rm=3" alt="Hospital Chatbot Logo" class="logo" />
+      <span class="site-name">Hospital Care</span>
+    </div>
+    <ul class="nav-links">
+      <li><a routerLink="/services">Our Services</a></li>
+      <li><a (click)="navigateToChat()">Chat with us</a></li>
+      <li><a routerLink="/about">About us</a></li>
+    </ul>
+  </nav>
+</header>

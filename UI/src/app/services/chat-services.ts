@@ -7,20 +7,17 @@ import { lastValueFrom } from 'rxjs';
   
 })
 export class ChatService {
-  private apiUrl = 'http://localhost:8000/chat/'; // Replace with your actual API endpoint
-
-  private apiKey = '';
-  private apiOpenAiUrl = '';
+  private apiUrl = 'http://localhost:8000/chat/'; 
 
   constructor(private http: HttpClient) { }
 
-  async sendMessageToApi(message: string): Promise<any> {
+  async sendMessageToApi(message: string, sessionId: string = ''): Promise<any> {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
     });
     const body = {
-      user_input: message,
-      // Add other parameters required by your API, e.g., model, max_tokens
+      message: message,
+      session_id: sessionId
     };
     try {
       const response = await lastValueFrom(this.http.post(this.apiUrl, body, { headers }));
@@ -31,24 +28,4 @@ export class ChatService {
     }
   }
 
-  // async sendMessageToApi(message: string): Promise<any> {
-  //   const headers = new HttpHeaders({
-  //     'Content-Type': 'application/json',
-  //     Authorization: `Bearer ${this.apiKey}`,
-  //   });
-
-  //   const body = {
-  //     model: 'gpt-4o-mini', // or any supported model
-  //     messages: [{ role: 'user', content: message }],
-  //   };
-
-  //   try {
-  //     const response: any = await lastValueFrom(this.http.post(this.apiOpenAiUrl, body, { headers }));
-  //    Extract the bot reply from response
-  //     return response;
-  //   } catch (error) {
-  //     console.error('OpenAI API call error:', error);
-  //     throw new Error('Failed to fetch response from OpenAI');
-  //   }
-  // }
 }
