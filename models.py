@@ -15,16 +15,21 @@ class Patient(BaseModel):
 
 class Appointment(BaseModel):
     id: Optional[int]  # Id should be set at the API or DB level
-    patient_id: int
+    patient_name: int
     doctor_name: str
     appointment_date: str
     appointment_time: str
 
 
 class UpdateAppointment(BaseModel):
-    appointment_id: str
+    doctor_name: str
+    patient_name: str
     new_appointment_date: str
     new_appointment_time: str
+
+class ViewAppointmentReq(BaseModel):
+    patient_name: str
+    appointment_date: Optional[str] = None
 
 class PatientVerificationByPhone(BaseModel):
     first_name: str = Field(min_length=1, max_length=50)

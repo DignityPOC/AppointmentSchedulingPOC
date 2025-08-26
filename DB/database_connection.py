@@ -5,7 +5,7 @@ from typing import List
 patients_db: List[Patient] = []
 appointments_db: List[Appointment] = []
 
-class AppointmentManager:
+class AppointmentAndPatientManager:
     def __init__(self, db_name="appointments.db"):
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
