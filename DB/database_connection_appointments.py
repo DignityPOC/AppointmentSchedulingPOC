@@ -44,7 +44,7 @@ class AppointmentManager:
                 "INSERT INTO appointments (patient_name, doctor_name, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
                 (patient_name, doctor_name, date, time))
             self.conn.commit()
-            return {"Message": f"Appointment scheduled for patient ID {patient_name} with doctor {doctor_name} on {date} at {time}."}
+            return {"Message": f"Appointment scheduled for patient {patient_name} with doctor {doctor_name} on {date} at {time}."}
 
         except sqlite3.Error as e:
             return {

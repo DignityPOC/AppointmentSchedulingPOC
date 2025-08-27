@@ -2,6 +2,7 @@
 import uuid
 import json
 import re
+import types
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -15,6 +16,7 @@ from dateutil import parser as dtparser
 # Keep the import that works in your env:
 from langchain.chat_models import AzureChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
+from DB.database_connection_appointments import AppointmentManager
 
 OPENAI_API_KEY = ""
 OPENAI_API_BASE = ""
@@ -22,10 +24,10 @@ DEPLOYMENT_NAME = "gpt-4o-mini"
 OPENAI_API_VERSION = "2024-12-01-preview"
 
 llm = AzureChatOpenAI(
-    deployment_name=DEPLOYMENT_NAME,
-    openai_api_key=OPENAI_API_KEY,
-    openai_api_base=OPENAI_API_BASE,
-    openai_api_version=OPENAI_API_VERSION,
+    deployment_name=DEPLOYMENT_NAME, 
+    api_key=OPENAI_API_KEY,
+    azure_endpoint=OPENAI_API_BASE,
+    api_version=OPENAI_API_VERSION,
     temperature=0  # deterministic
 )
 
@@ -102,46 +104,58 @@ def tool_schedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
         "id": apt_id,
         "patientName": params["patientName"],
         "doctorName": params["doctorName"],
-        "date": params["date"],   # YYYY-MM-DD
-        "time": params["time"],   # HH:MM AM/PM
-        "created_at": datetime.utcnow().isoformat()
+        "date": params["date"],  # YYYY-MM-DD
+        "time": params["time"],  # HH:MM AM/PM
+        "created_at": datetime.utcnow().isoformat(),
     }
     state["appointments"].append(apt)
-    return f"✅ Appointment scheduled: {apt_id} with {apt['doctorName']} on {apt['date']} at {apt['time']} for {apt['patientName']}."
+    manager = AppointmentManager()
+    return manager.schedule_appointment(apt["patientName"], apt["doctorName"], apt["date"], apt["time"])["Message"]
 
 def tool_reschedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
     for apt in state["appointments"]:
-        if (apt["patientName"].lower() == params["patientName"].lower() and
-            apt["doctorName"].lower() == params["doctorName"].lower() and
-            apt["date"] == params["oldDate"] and
-            apt["time"].lower() == params["oldTime"].lower()):
+        if (apt["patientName"].lower() == params["patientName"].lower()
+            and apt["doctorName"].lower() == params["doctorName"].lower()
+            and apt["date"] == params["oldDate"]
+            and apt["time"].lower() == params["oldTime"].lower()):
             apt["date"] = params["newDate"]
             apt["time"] = params["newTime"]
-            return f"🔁 Rescheduled {apt['id']} to {apt['date']} at {apt['time']} for {apt['patientName']} with {apt['doctorName']}."
+            manager = AppointmentManager()
+            return manager.reschedule_appointment(apt["patientName"], apt["doctorName"], apt["date"], apt["time"])["Message"]
     return "⚠️ Could not find an existing appointment matching the old date/time for that patient and doctor."
 
 def tool_cancel(state: Dict[str, Any], params: Dict[str, str]) -> str:
     for i, apt in enumerate(state["appointments"]):
-        if (apt["patientName"].lower() == params["patientName"].lower() and
-            apt["doctorName"].lower() == params["doctorName"].lower() and
-            apt["date"] == params["date"] and
-            apt["time"].lower() == params["time"].lower()):
+        if (apt["patientName"].lower() == params["patientName"].lower()
+            and apt["doctorName"].lower() == params["doctorName"].lower()
+            and apt["date"] == params["date"]
+            and apt["time"].lower() == params["time"].lower()):
             removed = state["appointments"].pop(i)
-            return f"❌ Cancelled appointment {removed['id']} for {removed['patientName']} with {removed['doctorName']} on {removed['date']} at {removed['time']}."
+            requestattr = {
+                "patient_name": removed["patientName"],
+                "doctor_name": removed["doctorName"],
+            }
+            # Convert dict into an object with attributes
+            request = types.SimpleNamespace(**requestattr)
+            manager = AppointmentManager()
+            return manager.cancel_appointment(request)["Message"]
     return "⚠️ No matching appointment found to cancel."
 
 def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
     name = params["patientName"]
-    date_filter = params.get("date")
-    hits = []
-    for apt in state["appointments"]:
-        if apt["patientName"].lower() == name.lower():
-            if date_filter and apt["date"] != date_filter:
-                continue
-            hits.append(f"- {apt['id']}: {apt['doctorName']} on {apt['date']} at {apt['time']}")
-    if not hits:
-        return "ℹ️ No appointments found."
-    return "📋 Appointments:\n" + "\n".join(hits)
+    manager = AppointmentManager()
+    hits = manager.view_appointments(name)
+
+    if hits:
+        # Convert each Appointment object into a string representation
+        formatted_hits = [
+            f"Patient: {appt.patient_name}, Doctor: {appt.doctor_name}, Date: {appt.appointment_date}, Time: {appt.appointment_time}"
+            for appt in hits
+        ]
+        return "Appointments:\n" + "\n".join(formatted_hits)
+    else:
+        return "No appointment found."
+
 
 TOOLS = {
     "ScheduleAppointment": tool_schedule,
