@@ -25,13 +25,14 @@ class AppointmentManager:
 
         self.conn.commit()
 
-    def view_appointments(self):
-        self.cursor.execute("SELECT * FROM appointments")
+    def view_appointments(self, patient_name):
+        updated_patient_name = f"%{patient_name}%"
+        self.cursor.execute("SELECT * FROM appointments WHERE patient_name LIKE ?", (updated_patient_name,))
         rows = self.cursor.fetchall()
         appointments_db = []
 
         for row in rows:
-            appointment = Appointment(patient_name=row[1], doctor_name=row[2], appointment_date=row[3], appointment_time=row[4])
+            appointment = Appointment(id = row[0], patient_name=row[1], doctor_name=row[2], appointment_date=row[3], appointment_time=row[4])
             appointments_db.append(appointment)
 
         return appointments_db

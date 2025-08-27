@@ -6,7 +6,7 @@ patients_db: List[Patient] = []
 appointments_db: List[Appointment] = []
 
 class AppointmentAndPatientManager:
-    def __init__(self, db_name="appointments.db"):
+    def __init__(self, db_name="appts.sqlite.db"):
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self._create_tables()

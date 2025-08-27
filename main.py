@@ -68,10 +68,10 @@ def RescheduleAppointment(req: UpdateAppointment):
     manager = AppointmentManager()
     return manager.reschedule_appointment(req.patient_name, req.doctor_name, req.new_appointment_date, req.new_appointment_time)
 
-@app.get("/appointments/", response_model=List[Appointment])
-async def get_all_appointments():
+@app.post("/appointments/", response_model=List[Appointment])
+async def get_all_appointments(req: ViewAppointmentReq):
     """
-    Retrieves a list of all registered patients.
+    Retrieves a list of all appointments.
     """
     manager = AppointmentManager()
-    return manager.view_appointments()
+    return manager.view_appointments(req.patient_name)
