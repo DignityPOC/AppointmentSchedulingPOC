@@ -27,7 +27,7 @@ class AppointmentManager:
 
     def view_appointments(self, patient_name):
         updated_patient_name = f"%{patient_name}%"
-        self.cursor.execute("SELECT * FROM appointments WHERE patient_name LIKE ?", (updated_patient_name,))
+        self.cursor.execute("SELECT * FROM appointments WHERE patient_name LIKE ?", (updated_patient_name.lower(),))
         rows = self.cursor.fetchall()
         appointments_db = []
 
@@ -42,9 +42,9 @@ class AppointmentManager:
         try:
             self.cursor.execute(
                 "INSERT INTO appointments (patient_name, doctor_name, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
-                (patient_name, doctor_name, date, time))
+                (patient_name.lower(), doctor_name.lower(), date, time))
             self.conn.commit()
-            return {"Message": f"Appointment scheduled for patient {patient_name} with doctor {doctor_name} on {date} at {time}."}
+            return {"Message": f"Appointment scheduled for patient {patient_name.upper()} with doctor {doctor_name.upper()} on {date} at {time}."}
 
         except sqlite3.Error as e:
             return {
@@ -53,14 +53,28 @@ class AppointmentManager:
     def reschedule_appointment(self, patient_name, doctor_name, new_date, new_time):
         self.cursor.execute(
             "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE patient_name = ? AND doctor_name = ?",
-            (new_date, new_time, patient_name, doctor_name))
+            (new_date, new_time, patient_name.lower(), doctor_name.lower()))
         self.conn.commit()
-        return {"Message": f"Appointment of patient {patient_name} with doctor {doctor_name} updated to {new_date} at {new_time}."}
-
+        if self.cursor.rowcount == 0:
+            return {
+                "Message": f"No appointment found for patient {patient_name.upper()} with doctor {doctor_name.upper()}."
+            }
+        else:
+            return {
+                "Message": f"Appointment of patient {patient_name.upper()} with doctor {doctor_name.upper()} updated to {new_date} at {new_time}."
+            }
+        
     def cancel_appointment(self, request):
-        self.cursor.execute("DELETE FROM appointments WHERE patient_name = ? AND doctor_name = ?", (request.patient_name, request.doctor_name))
+        self.cursor.execute("DELETE FROM appointments WHERE patient_name = ? AND doctor_name = ?", (request.patient_name.lower(), request.doctor_name.lower()))
         self.conn.commit()
-        return {"Message": f"Appointment of patient {request.patient_name} with doctor {request.doctor_name} is cancelled."}
+        if self.cursor.rowcount == 0:
+            return {
+                "Message": f"No appointment found for patient {request.patient_name.upper()} with doctor {request.doctor_name.upper()}."
+            }
+        else:
+            return {
+                "Message": f"Appointment of patient {request.patient_name.upper()} with doctor {request.doctor_name.upper()} is cancelled."
+            }
 
     def close_connection(self):
         self.conn.close()

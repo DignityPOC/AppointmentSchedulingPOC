@@ -2,11 +2,11 @@
 import uuid
 import json
 import re
+import os
 import types
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
@@ -17,17 +17,22 @@ from dateutil import parser as dtparser
 from langchain.chat_models import AzureChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from DB.database_connection_appointments import AppointmentManager
+from langsmith import traceable
 
-OPENAI_API_KEY = ""
-OPENAI_API_BASE = ""
+os.environ["LANGSMITH_API_KEY"] = "###"   # <-- put your LangSmith API key here
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_PROJECT"] = "MediCall-POC"
+
+OPENAI_API_KEY = "###"  # <-- put your OpenAI API key here
+OPENAI_API_BASE = "###"  # <-- put your OpenAI API base URL here
 DEPLOYMENT_NAME = "gpt-4o-mini"
 OPENAI_API_VERSION = "2024-12-01-preview"
 
 llm = AzureChatOpenAI(
-    deployment_name=DEPLOYMENT_NAME, 
-    api_key=OPENAI_API_KEY,
-    azure_endpoint=OPENAI_API_BASE,
-    api_version=OPENAI_API_VERSION,
+    deployment_name=DEPLOYMENT_NAME,
+    openai_api_key=OPENAI_API_KEY,
+    openai_api_base=OPENAI_API_BASE,
+    openai_api_version=OPENAI_API_VERSION,
     temperature=0  # deterministic
 )
 
@@ -96,51 +101,29 @@ CRITICAL RULES:
 - Be persistent but patient. Keep it short.
 """
 
-
 #Tools
+@traceable(run_type="tool", name="ScheduleAppointment")
 def tool_schedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    apt_id = f"apt-{int(datetime.utcnow().timestamp())}"
-    apt = {
-        "id": apt_id,
-        "patientName": params["patientName"],
-        "doctorName": params["doctorName"],
-        "date": params["date"],  # YYYY-MM-DD
-        "time": params["time"],  # HH:MM AM/PM
-        "created_at": datetime.utcnow().isoformat(),
-    }
-    state["appointments"].append(apt)
     manager = AppointmentManager()
-    return manager.schedule_appointment(apt["patientName"], apt["doctorName"], apt["date"], apt["time"])["Message"]
+    return manager.schedule_appointment(params["patientName"], params["doctorName"], params["date"], params["time"])["Message"]
 
+@traceable(run_type="tool", name="RescheduleAppointment")
 def tool_reschedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    for apt in state["appointments"]:
-        if (apt["patientName"].lower() == params["patientName"].lower()
-            and apt["doctorName"].lower() == params["doctorName"].lower()
-            and apt["date"] == params["oldDate"]
-            and apt["time"].lower() == params["oldTime"].lower()):
-            apt["date"] = params["newDate"]
-            apt["time"] = params["newTime"]
             manager = AppointmentManager()
-            return manager.reschedule_appointment(apt["patientName"], apt["doctorName"], apt["date"], apt["time"])["Message"]
-    return "⚠️ Could not find an existing appointment matching the old date/time for that patient and doctor."
+            return manager.reschedule_appointment(params["patientName"].lower(), params["doctorName"].lower(), params["newDate"], params["newTime"])["Message"]
 
+@traceable(run_type="tool", name="CancelAppointment")
 def tool_cancel(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    for i, apt in enumerate(state["appointments"]):
-        if (apt["patientName"].lower() == params["patientName"].lower()
-            and apt["doctorName"].lower() == params["doctorName"].lower()
-            and apt["date"] == params["date"]
-            and apt["time"].lower() == params["time"].lower()):
-            removed = state["appointments"].pop(i)
-            requestattr = {
-                "patient_name": removed["patientName"],
-                "doctor_name": removed["doctorName"],
-            }
+        requestattr = {
+            "patient_name": params["patientName"].lower(),
+            "doctor_name": params["doctorName"].lower(),
+        }
             # Convert dict into an object with attributes
-            request = types.SimpleNamespace(**requestattr)
-            manager = AppointmentManager()
-            return manager.cancel_appointment(request)["Message"]
-    return "⚠️ No matching appointment found to cancel."
+        request = types.SimpleNamespace(**requestattr)
+        manager = AppointmentManager()
+        return manager.cancel_appointment(request)["Message"]
 
+@traceable(run_type="tool", name="ViewAppointment")
 def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
     name = params["patientName"]
     manager = AppointmentManager()
@@ -149,7 +132,7 @@ def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
     if hits:
         # Convert each Appointment object into a string representation
         formatted_hits = [
-            f"Patient: {appt.patient_name}, Doctor: {appt.doctor_name}, Date: {appt.appointment_date}, Time: {appt.appointment_time}"
+            f"- appointment of {appt.patient_name.upper()} with doctor {appt.doctor_name.upper()} on {appt.appointment_date} at {appt.appointment_time}"
             for appt in hits
         ]
         return "Appointments:\n" + "\n".join(formatted_hits)
@@ -171,6 +154,7 @@ USER_TZ = ZoneInfo("America/New_York")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TIME_RE = re.compile(r"^\d{1,2}:\d{2}\s?(AM|PM)$", re.I)
 
+@traceable(run_type="chain", name="normalize_date")
 def normalize_date(date_str: str, user_msg: str) -> str:
     """Force current year if user didn't type a 4-digit year in THIS message."""
     user_has_year = bool(re.search(r"\b(19|20)\d{2}\b", user_msg))
@@ -179,6 +163,8 @@ def normalize_date(date_str: str, user_msg: str) -> str:
         base = base.replace(year=datetime.now(USER_TZ).year)
     return base.date().isoformat()  # YYYY-MM-DD
 
+
+@traceable(run_type="chain", name="normalize_time_ampm")
 def normalize_time_ampm(time_str: str) -> str:
     try:
         dt = dtparser.parse(time_str)
@@ -191,15 +177,20 @@ def normalize_time_ampm(time_str: str) -> str:
     except Exception:
         return time_str
 
+@traceable(run_type="chain", name="to_aware")
 def to_aware(date_str: str, time_ampm: str) -> datetime:
     dt = dtparser.parse(f"{date_str} {time_ampm}", default=datetime.now(USER_TZ))
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=USER_TZ)
     return dt
 
+
+@traceable(run_type="chain", name="is_past")
 def is_past(aware_dt: datetime) -> bool:
     return aware_dt < datetime.now(aware_dt.tzinfo or USER_TZ)
 
+
+@traceable(run_type="chain", name="extract_json_block")
 def extract_json_block(text: str) -> Optional[dict]:
     start = text.find("{")
     end = text.rfind("}")
@@ -210,6 +201,7 @@ def extract_json_block(text: str) -> Optional[dict]:
     except Exception:
         return None
 
+@traceable(run_type="chain", name="validate_and_normalize_params")
 def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: str) -> Tuple[bool, List[str], Dict[str, str]]:
 
     errors: List[str] = []
@@ -285,6 +277,7 @@ class ChatResponse(BaseModel):
     done: bool = False
     tool_result: Optional[str] = None
 
+@traceable(run_type="chain", name="chat-handler", tags=["api", "chat"])
 @app.post("/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest):
     session_id, state = get_session(payload.session_id)
