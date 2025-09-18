@@ -6,7 +6,7 @@ patients_db: List[Patient] = []
 appointments_db: List[Appointment] = []
 
 class AppointmentAndPatientManager:
-    def __init__(self, db_name="appts.sqlite.db"):
+    def __init__(self, db_name="appointment_details.db"):
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self._create_tables()
@@ -31,12 +31,23 @@ class AppointmentAndPatientManager:
             CREATE TABLE IF NOT EXISTS appointments (
                 appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 patient_id INTEGER,
-                doctor_name TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
                 appointment_date TEXT NOT NULL,
                 appointment_time TEXT NOT NULL,
                 FOREIGN KEY (patient_id) REFERENCES patients(patient_id)
+                FOREIGN KEY (provider_id) REFERENCES providers(provider_id)
             )
         ''')
+
+        # Create Provider table
+        self.cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS providers (
+                        provider_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        location TEXT NOT NULL,
+                        speciality TEXT NOT NULL,
+                        slots TEXT NOT NULL
+                    )
+                ''')
 
         self.conn.commit()
 
@@ -85,26 +96,47 @@ class AppointmentAndPatientManager:
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
         return patient
 
-    def schedule_appointment(self, patient_id, doctor_name, date, time):
+    def schedule_appointment(self, patient_id, provider_id, date, time):
         try:
             self.cursor.execute(
-                "INSERT INTO appointments (patient_id, doctor_name, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
-                (patient_id, doctor_name, date, time))
+                "INSERT INTO appointments (patient_id, provider_id, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
+                (patient_id, provider_id, date, time))
             self.conn.commit()
-            return {"Message": f"Appointment scheduled for patient ID {patient_id} with doctor {doctor_name} on {date} at {time}."}
+            return {"Message": f"Appointment scheduled for patient ID {patient_id} with doctor {provider_id} on {date} at {time}. The appointment id is {self.cursor.lastrowid}."}
 
         except sqlite3.Error as e:
             return {
                 "Message": f"Error scheduling appointment: {e}"}
 
-    def update_appointment_time(self, appointment_id, new_date, new_time):
+    def update_appointment_time(self, provider_id, patient_id, new_date, new_time):
         self.cursor.execute(
-            "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE appointment_id = ?",
-            (new_date, new_time, appointment_id))
+            "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE patient_id = ? AND provider_id = ?",
+            (new_date, new_time, patient_id, provider_id))
         self.conn.commit()
-        return {"Message": f"Appointment ID {appointment_id} updated to {new_date} at {new_time}."}
+        if self.cursor.rowcount == 0:
+            return {
+                "Message": f"No appointment found for patient {patient_id} with doctor {provider_id}."
+            }
+        else:
+            return {
+                "Message": f"Appointment of patient {patient_id} with doctor {provider_id} updated to {new_date} at {new_time}"
+            }
 
-    def cancel_appointment(self, appointment_id):
+    def cancel_appointment(self, patient_first_name, patient_dob):
+        self.cursor.execute(
+            "SELECT * FROM patients WHERE first_name = ? AND date_of_birth = ?",
+            (patient_first_name, patient_dob))
+        row = self.cursor.fetchone()
+        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
+                          gender=row[5], phone_number=row[6], address=row[7])
+        self.cursor.execute(
+            "SELECT * FROM appointments WHERE patient_id = ?",
+            (patient.id))
+        row = self.cursor.fetchone()
+        appointments_id = row[0]
+        self.cancel_appointment_by_id(appointments_id)
+
+    def cancel_appointment_by_id(self, appointment_id):
         self.cursor.execute("DELETE FROM appointments WHERE appointment_id = ?", (appointment_id,))
         self.conn.commit()
         return {"Message": f"Appointment ID {appointment_id} cancelled."}

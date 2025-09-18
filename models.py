@@ -4,7 +4,6 @@ from datetime import date
 import re
 
 class Patient(BaseModel):
-    id: Optional[int]  # Id should be set at the API or DB level
     first_name: str
     last_name: str
     email: str
@@ -22,13 +21,17 @@ class Appointment(BaseModel):
 
 
 class UpdateAppointment(BaseModel):
-    doctor_name: str
-    patient_name: str
+    provider_id: str
+    patient_id: str
     new_appointment_date: str
     new_appointment_time: str
 
 class ViewAppointmentReq(BaseModel):
     patient_name: str
+
+class CancelAppointmentReq(BaseModel):
+        first_name: str
+        date_of_birth: str
 
 class PatientVerificationByPhone(BaseModel):
     first_name: str = Field(min_length=1, max_length=50)
