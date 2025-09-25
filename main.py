@@ -9,7 +9,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.messages import BaseMessage
 from pydantic import parse_obj_as, BaseModel
 from typing import List, Optional, Literal
-from models import Patient, PatientVerificationByPhone, CancelAppointmentReq, PatientVerificationBySsn, Appointment, UpdateAppointment
+from models import Patient, PatientVerificationByPhone, CancelAppointmentReq, PatientVerificationBySsn, Appointment, UpdateAppointment, Provider
 
 app = FastAPI()
 graph = build_graph()
@@ -41,6 +41,14 @@ class ScheduleReq(BaseModel):
     provider_id: int
     date: str
     time: str
+
+class ScheduleAppointmentRequestWithDetails(BaseModel):
+    first_name: str
+    last_name: str;
+    phone_number: str;
+    provider_id: int
+    date: str
+    time: str
     
 class CancelScheduleReq(BaseModel):
     emailId: str
@@ -57,6 +65,14 @@ def process(req: Req):
 def ScheduleAppointment(req: ScheduleReq):
     manager = AppointmentAndPatientManager()
     return manager.schedule_appointment(req.patient_id, req.provider_id, req.date, req.time)
+
+@app.post("/ScheduleAppointment")
+def ScheduleAppointmentWithDetails(req: ScheduleAppointmentRequestWithDetails):
+    manager = AppointmentAndPatientManager()
+    patient = manager.verify_patient_by_phone(req.first_name, req.last_name, req.phone_number)
+    if patient is None:
+        patient = manager.re
+    return manager.schedule_appointment_with_detail(req)
 
 @app.post("/CancelAppointmentById")
 def CancelAppointment(req: int):
@@ -91,6 +107,14 @@ async def get_all_patients():
     manager = AppointmentAndPatientManager()
     return manager.get_all_patients()
 
+@app.get("/providers/", response_model=List[Provider])
+async def get_all_providers():
+    """
+    Retrieves a list of all registered patients.
+    """
+    manager = AppointmentAndPatientManager()
+    return manager.get_all_providers()
+
 
 @app.get("/appointments/", response_model=List[Appointment])
 async def get_all_appointments():
@@ -110,6 +134,18 @@ async def get_patient_by_id(patient_id: str):
     if patient is not None:
         return patient
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+@app.get("/providers/{provider_id}", response_model=Provider)
+async def get_provider_by_id(provider_id: str):
+    """
+    Retrieves a single patient by its ID.
+    """
+    manager = AppointmentAndPatientManager()
+    provider = manager.get_provider_by_id(provider_id)
+    if provider is not None:
+        return provider
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+
 
 @app.get("/patients/{patient_id}", response_model=Patient)
 async def get_patient_by_id(patient_id: str):

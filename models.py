@@ -12,6 +12,12 @@ class Patient(BaseModel):
     phone_number: str
     address: Optional[str] = None
 
+class Provider(BaseModel):
+    provider_name: str
+    location: str
+    speciality: str
+    slots: str
+
 class Appointment(BaseModel):
     id: Optional[int]  # Id should be set at the API or DB level
     patient_name: str

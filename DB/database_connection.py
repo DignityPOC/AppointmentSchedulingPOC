@@ -1,12 +1,13 @@
 import sqlite3
-from models import Patient, Appointment
+from models import Patient, Provider, Appointment
 from typing import List
 
 patients_db: List[Patient] = []
+providers_db: List[Provider] = []
 appointments_db: List[Appointment] = []
 
 class AppointmentAndPatientManager:
-    def __init__(self, db_name="appointment_details.db"):
+    def __init__(self, db_name="appointment_details_new.db"):
         self.conn = sqlite3.connect(db_name)
         self.cursor = self.conn.cursor()
         self._create_tables()
@@ -43,6 +44,7 @@ class AppointmentAndPatientManager:
         self.cursor.execute('''
                     CREATE TABLE IF NOT EXISTS providers (
                         provider_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        provider_name TEXT NOT NULL,
                         location TEXT NOT NULL,
                         speciality TEXT NOT NULL,
                         slots TEXT NOT NULL
@@ -72,6 +74,17 @@ class AppointmentAndPatientManager:
 
         return patients_db
 
+    def get_all_providers(self):
+        self.cursor.execute("SELECT * FROM providers p")
+        rows = self.cursor.fetchall()
+        providers_db = []
+
+        for row in rows:
+            provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+            providers_db.append(provider)
+
+        return providers_db
+
     def get_all_appointments(self):
         self.cursor.execute("SELECT * FROM appointments ap")
         rows = self.cursor.fetchall()
@@ -90,13 +103,38 @@ class AppointmentAndPatientManager:
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
         return patient
 
+    def get_provider_by_id(self, provider_id):
+        self.cursor.execute("SELECT * FROM providers WHERE provider_id = ?", (provider_id))
+        row = self.cursor.fetchone()
+        provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+        return provider
+
     def verify_patient_by_phone_and_dob(self, patient_data):
         self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ? AND phone_number = ? AND date_of_birth = ?", (patient_data.first_name, patient_data.last_name, patient_data.phone_number, patient_data.date_of_birth))
         row = self.cursor.fetchone()
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
         return patient
 
+    def verify_patient_by_phone(self, patient_first_name, patient_last_name, patient_phone_no):
+        self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ? AND phone_number = ?", (patient_first_name, patient_last_name, patient_phone_no))
+        row = self.cursor.fetchone()
+        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
+        return patient
+
     def schedule_appointment(self, patient_id, provider_id, date, time):
+        try:
+            self.cursor.execute(
+                "INSERT INTO appointments (patient_id, provider_id, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
+                (patient_id, provider_id, date, time))
+            self.conn.commit()
+            return {"Message": f"Appointment scheduled for patient ID {patient_id} with doctor {provider_id} on {date} at {time}. The appointment id is {self.cursor.lastrowid}."}
+
+        except sqlite3.Error as e:
+            return {
+                "Message": f"Error scheduling appointment: {e}"}
+
+
+    def schedule_appointment_with_detail(self, patient_id, provider_id, date, time):
         try:
             self.cursor.execute(
                 "INSERT INTO appointments (patient_id, provider_id, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
