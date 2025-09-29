@@ -59,9 +59,9 @@ class AppointmentAndPatientManager:
             self.cursor.execute("INSERT INTO patients (first_name, last_name, gender, date_of_birth, email, phone_number, address) VALUES (?, ?, ?, ?, ?, ?, ?)", (first_name, last_name, gender, date_of_birth,
                         email, phone_number, address))
             self.conn.commit()
-            print(f"Patient '{first_name}' added successfully.")
+            return self.cursor.lastrowid
         except sqlite3.IntegrityError:
-            print(f"Error: Patient with email id '{email}' already exists.")
+            return 0
 
     def get_all_patients(self):
         self.cursor.execute("SELECT * FROM patients p")
@@ -77,6 +77,35 @@ class AppointmentAndPatientManager:
     def get_all_providers(self):
         self.cursor.execute("SELECT * FROM providers p")
         rows = self.cursor.fetchall()
+        providers_db = []
+
+        for row in rows:
+            provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+            providers_db.append(provider)
+
+        return providers_db
+
+    def get_provider_by_id(self, provider_id):
+        self.cursor.execute("SELECT * FROM providers WHERE provider_id = ?", (provider_id))
+        row = self.cursor.fetchone()
+        provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+        return provider
+
+    def get_providers_by_location(self, location):
+        self.cursor.execute("SELECT * FROM providers WHERE location = ?", (location,))
+        rows = self.cursor.fetchall()
+
+        providers_db = []
+        for row in rows:
+            provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+            providers_db.append(provider)
+
+        return providers_db
+
+    def get_providers_by_speciality(self, speciality):
+        self.cursor.execute("SELECT * FROM providers WHERE speciality = ?", (speciality,))
+        rows = self.cursor.fetchall()
+
         providers_db = []
 
         for row in rows:
@@ -118,8 +147,11 @@ class AppointmentAndPatientManager:
     def verify_patient_by_phone(self, patient_first_name, patient_last_name, patient_phone_no):
         self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ? AND phone_number = ?", (patient_first_name, patient_last_name, patient_phone_no))
         row = self.cursor.fetchone()
-        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
-        return patient
+        if row is None:
+            return 0
+        else:
+            patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
+            return patient.id
 
     def schedule_appointment(self, patient_id, provider_id, date, time):
         try:

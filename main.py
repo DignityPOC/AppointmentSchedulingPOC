@@ -73,11 +73,11 @@ def ScheduleAppointment(req: ScheduleReq):
 @app.post("/ScheduleAppointmentWithDetails")
 def ScheduleAppointmentWithDetails(req: ScheduleAppointmentRequestWithDetails):
     manager = AppointmentAndPatientManager()
-    patient = manager.verify_patient_by_phone(req.first_name, req.last_name, req.phone_number)
-    if patient is None:
-        patient = manager.add_patient(req.first_name, req.last_name, req.gender, req.date_of_birth,
+    patient_id = manager.verify_patient_by_phone(req.first_name, req.last_name, req.phone_number)
+    if patient_id is 0:
+        patient_id = manager.add_patient(req.first_name, req.last_name, req.gender, req.dob,
                         req.email, req.phone_number, req.address)
-    return manager.schedule_appointment_with_detail(patient, req.provider_id, req.date, req.time)
+    return manager.schedule_appointment_with_detail(patient_id, req.provider_id, req.date, req.time)
 
 @app.post("/CancelAppointmentById")
 def CancelAppointment(req: int):
@@ -120,6 +120,33 @@ async def get_all_providers():
     manager = AppointmentAndPatientManager()
     return manager.get_all_providers()
 
+@app.get("/providers/{provider_id}", response_model=Provider)
+async def get_provider_by_id(provider_id: str):
+    """
+    Retrieves a single patient by its ID.
+    """
+    manager = AppointmentAndPatientManager()
+    provider = manager.get_provider_by_id(provider_id)
+    if provider is not None:
+        return provider
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+
+@app.get("/GetProvidersByLocation/", response_model=List[Provider])
+async def get_providers_by_location(location: str):
+    """
+    Retrieves a list of providers by location.
+    """
+    manager = AppointmentAndPatientManager()
+    return manager.get_providers_by_location(location)
+
+@app.get("/GetProvidersBySpeciality/", response_model=List[Provider])
+async def get_all_providers_by_speciality(speciality: str):
+    """
+    Retrieves a list of all providers by speciality.
+    """
+    manager = AppointmentAndPatientManager()
+    return manager.get_providers_by_speciality(speciality)
+
 
 @app.get("/appointments/", response_model=List[Appointment])
 async def get_all_appointments():
@@ -140,16 +167,6 @@ async def get_patient_by_id(patient_id: str):
         return patient
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-@app.get("/providers/{provider_id}", response_model=Provider)
-async def get_provider_by_id(provider_id: str):
-    """
-    Retrieves a single patient by its ID.
-    """
-    manager = AppointmentAndPatientManager()
-    provider = manager.get_provider_by_id(provider_id)
-    if provider is not None:
-        return provider
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
 
 
 @app.get("/patients/{patient_id}", response_model=Patient)

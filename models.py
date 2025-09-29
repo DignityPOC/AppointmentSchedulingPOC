@@ -4,6 +4,7 @@ from datetime import date
 import re
 
 class Patient(BaseModel):
+    id: int
     first_name: str
     last_name: str
     email: str
@@ -13,6 +14,7 @@ class Patient(BaseModel):
     address: Optional[str] = None
 
 class Provider(BaseModel):
+    id: int
     provider_name: str
     location: str
     speciality: str
