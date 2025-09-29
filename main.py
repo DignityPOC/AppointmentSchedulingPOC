@@ -44,8 +44,12 @@ class ScheduleReq(BaseModel):
 
 class ScheduleAppointmentRequestWithDetails(BaseModel):
     first_name: str
-    last_name: str;
-    phone_number: str;
+    last_name: str
+    gender: str
+    dob: str
+    email: str
+    phone_number: str
+    address: str
     provider_id: int
     date: str
     time: str
@@ -66,13 +70,14 @@ def ScheduleAppointment(req: ScheduleReq):
     manager = AppointmentAndPatientManager()
     return manager.schedule_appointment(req.patient_id, req.provider_id, req.date, req.time)
 
-@app.post("/ScheduleAppointment")
+@app.post("/ScheduleAppointmentWithDetails")
 def ScheduleAppointmentWithDetails(req: ScheduleAppointmentRequestWithDetails):
     manager = AppointmentAndPatientManager()
     patient = manager.verify_patient_by_phone(req.first_name, req.last_name, req.phone_number)
     if patient is None:
-        patient = manager.re
-    return manager.schedule_appointment_with_detail(req)
+        patient = manager.add_patient(req.first_name, req.last_name, req.gender, req.date_of_birth,
+                        req.email, req.phone_number, req.address)
+    return manager.schedule_appointment_with_detail(patient, req.provider_id, req.date, req.time)
 
 @app.post("/CancelAppointmentById")
 def CancelAppointment(req: int):
