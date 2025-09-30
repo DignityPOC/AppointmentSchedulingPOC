@@ -178,7 +178,7 @@ class AppointmentAndPatientManager:
             return {
                 "Message": f"Error scheduling appointment: {e}"}
 
-    def update_appointment_time(self, provider_id, patient_id, new_date, new_time):
+    def reschedule_appointment(self, provider_id, patient_id, new_date, new_time):
         self.cursor.execute(
             "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE patient_id = ? AND provider_id = ?",
             (new_date, new_time, patient_id, provider_id))
