@@ -166,13 +166,18 @@ class AppointmentAndPatientManager:
                 "Message": f"Error scheduling appointment: {e}"}
 
 
-    def schedule_appointment_with_detail(self, patient_id, provider_id, date, time):
+    def schedule_appointment_with_detail(self,req):
         try:
+            patient_id = self.verify_patient_by_phone(req.first_name, req.last_name, req.phone_number)
+            if patient_id is 0:
+                patient_id = self.add_patient(req.first_name, req.last_name, req.gender, req.dob,
+                                                 req.email, req.phone_number, req.address)
+
             self.cursor.execute(
                 "INSERT INTO appointments (patient_id, provider_id, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
-                (patient_id, provider_id, date, time))
+                (patient_id, req.provider_id, req.date, req.time))
             self.conn.commit()
-            return {"Message": f"Appointment scheduled for patient ID {patient_id} with doctor {provider_id} on {date} at {time}. The appointment id is {self.cursor.lastrowid}."}
+            return {"Message": f"Appointment scheduled for patient ID {patient_id} with doctor {req.provider_id} on {req.date} at {req.time}. The appointment id is {self.cursor.lastrowid}."}
 
         except sqlite3.Error as e:
             return {

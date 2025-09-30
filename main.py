@@ -73,11 +73,7 @@ def ScheduleAppointment(req: ScheduleReq):
 @app.post("/ScheduleAppointmentWithDetails")
 def ScheduleAppointmentWithDetails(req: ScheduleAppointmentRequestWithDetails):
     manager = AppointmentAndPatientManager()
-    patient_id = manager.verify_patient_by_phone(req.first_name, req.last_name, req.phone_number)
-    if patient_id is 0:
-        patient_id = manager.add_patient(req.first_name, req.last_name, req.gender, req.dob,
-                        req.email, req.phone_number, req.address)
-    return manager.schedule_appointment_with_detail(patient_id, req.provider_id, req.date, req.time)
+    return manager.schedule_appointment_with_detail(req)
 
 @app.post("/CancelAppointmentById")
 def CancelAppointment(req: int):
