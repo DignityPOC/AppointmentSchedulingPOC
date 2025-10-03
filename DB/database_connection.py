@@ -133,6 +133,29 @@ class AppointmentAndPatientManager:
 
         return appointments_db
 
+    def get_appointments_by_patient_Name(self, patient_first_name, patient_last_name):
+        patient = self.get_patient_by_name(patient_first_name, patient_last_name)
+        if patient is None:
+            return {
+                "Message": f"No patient found with the name {patient_first_name} {patient_last_name}."
+            }
+
+        self.cursor.execute("SELECT * FROM appointments WHERE patient_id = ?", (patient.id,))
+        rows = self.cursor.fetchall()
+        if rows is None:
+            return {
+                "Message": f"No appointments found of patient {patient_first_name} {patient_last_name}."
+            }
+
+        appointments_db = []
+
+        for row in rows:
+            provider = self.get_provider_by_id(row[2]);
+            appointment = Appointment(id=row[0], patient_name=patient_first_name , doctor_name=provider.provider_name, appointment_date=row[3],
+                                      appointment_time=row[4])
+            appointments_db.append(appointment)
+
+        return appointments_db
 
     def get_patient_by_id(self, patient_id):
         self.cursor.execute("SELECT * FROM patients WHERE patient_id = ?", (patient_id))

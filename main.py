@@ -145,12 +145,12 @@ async def get_all_providers_by_speciality(speciality: str):
 
 
 @app.get("/appointments/", response_model=List[Appointment])
-async def get_all_appointments():
+async def get_appointments_by_patient_name(patient_first_name, patient_last_name):
     """
     Retrieves a list of all registered patients.
     """
     manager = AppointmentAndPatientManager()
-    return manager.get_all_appointments()
+    return manager.get_appointments_by_patient_Name(patient_first_name, patient_last_name)
 
 @app.get("/patients/{patient_id}", response_model=Patient)
 async def get_patient_by_id(patient_id: str):
@@ -162,7 +162,6 @@ async def get_patient_by_id(patient_id: str):
     if patient is not None:
         return patient
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-
 
 
 @app.get("/patients/{patient_id}", response_model=Patient)

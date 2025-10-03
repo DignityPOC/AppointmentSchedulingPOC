@@ -27,6 +27,12 @@ class Appointment(BaseModel):
     appointment_date: str
     appointment_time: str
 
+class AppointmentData(BaseModel):
+    id: Optional[int]  # Id should be set at the API or DB level
+    patient_name: str
+    doctor_name: str
+    appointment_date: str
+    appointment_time: str
 
 class UpdateAppointment(BaseModel):
     provider_name: str
