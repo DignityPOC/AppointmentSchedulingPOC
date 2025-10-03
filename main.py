@@ -88,7 +88,7 @@ def CancelAppointment(req: CancelAppointmentReq):
 @app.post("/RescheduleAppointment")
 def RescheduleAppointment(req: UpdateAppointment):
     manager = AppointmentAndPatientManager()
-    return manager.reschedule_appointment(req.provider_id, req.patient_id, req.new_appointment_date, req.new_appointment_time)
+    return manager.reschedule_appointment(req.provider_name, req.patient_first_name, req.patient_last_name, req.new_appointment_date, req.new_appointment_time)
 
 @app.post("/patients/", response_model=Patient, status_code=status.HTTP_201_CREATED)
 async def register_patient(patient: Patient):

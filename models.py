@@ -29,8 +29,9 @@ class Appointment(BaseModel):
 
 
 class UpdateAppointment(BaseModel):
-    provider_id: str
-    patient_id: str
+    provider_name: str
+    patient_first_name: str
+    patient_last_name: str
     new_appointment_date: str
     new_appointment_time: str
 

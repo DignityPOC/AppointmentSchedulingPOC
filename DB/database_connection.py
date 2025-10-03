@@ -91,6 +91,14 @@ class AppointmentAndPatientManager:
         provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
         return provider
 
+    def get_provider_by_name(self, provider_name):
+        self.cursor.execute("SELECT * FROM providers WHERE provider_name = ?", (provider_name,))
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
+        provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+        return provider
+
     def get_providers_by_location(self, location):
         self.cursor.execute("SELECT * FROM providers WHERE location = ?", (location,))
         rows = self.cursor.fetchall()
@@ -129,6 +137,14 @@ class AppointmentAndPatientManager:
     def get_patient_by_id(self, patient_id):
         self.cursor.execute("SELECT * FROM patients WHERE patient_id = ?", (patient_id))
         row = self.cursor.fetchone()
+        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
+        return patient
+
+    def get_patient_by_name(self, first_name, last_name):
+        self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ?", (first_name, last_name,))
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
         return patient
 
@@ -183,18 +199,31 @@ class AppointmentAndPatientManager:
             return {
                 "Message": f"Error scheduling appointment: {e}"}
 
-    def reschedule_appointment(self, provider_id, patient_id, new_date, new_time):
+    def reschedule_appointment(self, provider_name, patient_first_name, patient_last_name, new_date, new_time):
+        provider = self.get_provider_by_name(provider_name)
+        if provider is None:
+            return {
+                "Message": f"No doctor found with the name {provider_name}."
+            }
+
+        patient = self.get_patient_by_name(patient_first_name, patient_last_name)
+        if patient is None:
+            return {
+                "Message": f"No patient found with the name {patient_first_name} {patient_last_name}."
+            }
+
         self.cursor.execute(
             "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE patient_id = ? AND provider_id = ?",
-            (new_date, new_time, patient_id, provider_id))
+            (new_date, new_time, patient.id, provider.id))
+
         self.conn.commit()
         if self.cursor.rowcount == 0:
             return {
-                "Message": f"No appointment found for patient {patient_id} with doctor {provider_id}."
+                "Message": f"No appointment found for patient {patient_first_name} {patient_last_name} with doctor {provider_name}."
             }
         else:
             return {
-                "Message": f"Appointment of patient {patient_id} with doctor {provider_id} updated to {new_date} at {new_time}"
+                "Message": f"Appointment of patient {patient_first_name} {patient_last_name} with doctor {provider_name} updated to {new_date} at {new_time}"
             }
 
     def cancel_appointment(self, patient_first_name, patient_dob):
