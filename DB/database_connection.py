@@ -216,7 +216,7 @@ class AppointmentAndPatientManager:
                 "INSERT INTO appointments (patient_id, provider_id, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
                 (patient_id, req.provider_id, req.date, req.time))
             self.conn.commit()
-            return {"Message": f"Appointment scheduled for patient ID {patient_id} with doctor {req.provider_id} on {req.date} at {req.time}. The appointment id is {self.cursor.lastrowid}."}
+            return {"Message": f"Appointment scheduled . The appointment id is {self.cursor.lastrowid}."}
 
         except sqlite3.Error as e:
             return {

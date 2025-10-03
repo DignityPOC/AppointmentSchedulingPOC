@@ -18,6 +18,7 @@ from langchain.chat_models import AzureChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage, AIMessage
 from DB.database_connection_appointments import AppointmentManager
 from langsmith import traceable
+from DB.database_connection import AppointmentAndPatientManager
 
 os.environ["LANGSMITH_API_KEY"] = "###"   # <-- put your LangSmith API key here
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -66,23 +67,27 @@ def get_session(session_id: Optional[str]) -> Tuple[str, Dict[str, Any]]:
 # MediCall System Prompt
 MEDICALL_PROMPT = """
 You are "MediCall," an empathetic and efficient AI medical caller agent. Your job is to help with:
-Schedule, Reschedule, Cancel, or View appointments.
+Retrieve Providers, Schedule, Reschedule, Cancel, or View appointments.
 
 TOOLS and REQUIRED PARAMETERS (strict):
-1) Tool: ScheduleAppointment
-   Parameters: doctorName (string), patientName (string), date (YYYY-MM-DD), time (HH:MM AM/PM)
-2) Tool: RescheduleAppointment
-   Parameters: doctorName (string), patientName (string),
+1) Tool: RetrieveProvidersList
+   Parameters: None
+2) Tool: ScheduleAppointment
+   Parameters: firstName (string), lastName (string), dateOfBirth (YYYY-MM-DD),
+               gender (string), providerId (string), date (YYYY-MM-DD),
+               time (HH:MM AM/PM), email (string), phoneNumber (string), address (string)
+3) Tool: RescheduleAppointment
+   Parameters: firstName (string), lastName (string),
                oldDate (YYYY-MM-DD), oldTime (HH:MM AM/PM),
                newDate (YYYY-MM-DD), newTime (HH:MM AM/PM)
-3) Tool: CancelAppointment
+4) Tool: CancelAppointment
    Parameters: doctorName (string), patientName (string), date (YYYY-MM-DD), time (HH:MM AM/PM)
-4) Tool: ViewAppointment
-   Parameters: patientName (string), date (optional, YYYY-MM-DD)
+5) Tool: ViewAppointment
+   Parameters: patient_firstName (string), patient_lastName (string), date (optional, YYYY-MM-DD)
 
 INTERACTION PROTOCOL:
 1) Greet warmly and state your purpose.
-2) Identify intent (schedule, reschedule, cancel, view).
+2) Identify intent (schedule, reschedule, cancel, view, providers).
 3) Ask polite, concise clarifying questions to gather ALL required parameters.
    - For dates and times: always ask for full, unambiguous values.
      Examples: "August 20, 2025" and "2:30 PM".
@@ -91,7 +96,7 @@ INTERACTION PROTOCOL:
    → Output ONLY a single JSON object with the exact structure:
 
 {
-  "tool": "<OneOf: ScheduleAppointment | RescheduleAppointment | CancelAppointment | ViewAppointment>",
+  "tool": "<OneOf: RetrieveProvidersList | ScheduleAppointment | RescheduleAppointment | CancelAppointment | ViewAppointment>",
   "parameters": { "<key>": "<value>", ... }
 }
 
@@ -102,15 +107,52 @@ CRITICAL RULES:
 """
 
 #Tools
+
+@traceable(run_type="tool", name="RetrieveProvidersList")
+def tool_retrieve_providers(state: Dict[str, Any], params: Dict[str, str]) -> str:
+    manager = AppointmentAndPatientManager()
+    providers = manager.get_all_providers()
+    if not providers:
+        return "No providers available."
+
+    formatted = [
+        f"- ProviderID: {p.id} - {p.provider_name} ({p.speciality}) at {p.location} [Slots: {p.slots}]"
+        for p in providers
+    ]
+    return "Available providers:\n" + "\n".join(formatted)
+
 @traceable(run_type="tool", name="ScheduleAppointment")
 def tool_schedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    manager = AppointmentManager()
-    return manager.schedule_appointment(params["patientName"], params["doctorName"], params["date"], params["time"])["Message"]
+    requestattr = {
+        "first_name": params.get("firstName", "").lower(),
+        "last_name": params.get("lastName", "").lower(),
+        "dob": params.get("dateOfBirth", "").lower(),
+        "gender": params.get("gender", "").lower(),
+        "provider_id": params.get("providerId", "").lower(),
+        "date": params.get("date", "").lower(),
+        "time": params.get("time", "").lower(),
+        "email": params.get("email", "").lower() if params.get("email") else "",
+        "phone_number": params.get("phoneNumber", "").lower() if params.get("phoneNumber") else "",
+        "address": params.get("address", "").lower() if params.get("address") else "",
+    }
+
+    req = types.SimpleNamespace(**requestattr)
+    manager = AppointmentAndPatientManager()
+    return manager.schedule_appointment_with_detail(req)["Message"]
 
 @traceable(run_type="tool", name="RescheduleAppointment")
 def tool_reschedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
-            manager = AppointmentManager()
-            return manager.reschedule_appointment(params["patientName"].lower(), params["doctorName"].lower(), params["newDate"], params["newTime"])["Message"]
+    requestattr = {
+        "first_name": params["firstName"].lower(),
+        "last_name": params["lastName"].lower(),
+        "old_date": params["oldDate"].lower(),
+        "old_time": params["oldTime"].lower(),
+        "new_date": params["newDate"].lower(),
+        "new_time": params["newTime"].lower(),
+    }
+    req = types.SimpleNamespace(**requestattr)
+    manager = AppointmentAndPatientManager()
+    return manager.reschedule_appointment(req)["Message"]
 
 @traceable(run_type="tool", name="CancelAppointment")
 def tool_cancel(state: Dict[str, Any], params: Dict[str, str]) -> str:
@@ -125,22 +167,36 @@ def tool_cancel(state: Dict[str, Any], params: Dict[str, str]) -> str:
 
 @traceable(run_type="tool", name="ViewAppointment")
 def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    name = params["patientName"]
-    manager = AppointmentManager()
-    hits = manager.view_appointments(name)
+    first_name = params["patient_firstName"]
+    last_name = params["patient_lastName"]
+    manager = AppointmentAndPatientManager()
+    hits = manager.get_appointments_by_patient_Name(first_name, last_name)
 
-    if hits:
-        # Convert each Appointment object into a string representation
-        formatted_hits = [
-            f"- appointment of {appt.patient_name.upper()} with doctor {appt.doctor_name.upper()} on {appt.appointment_date} at {appt.appointment_time}"
-            for appt in hits
-        ]
-        return "Appointments:\n" + "\n".join(formatted_hits)
-    else:
-        return "No appointment found."
+    # if hits:
+    #     # Convert each Appointment object into a string representation
+    #     formatted_hits = [
+    #         f"- appointment of {appt.patient_name.upper()} with doctor {appt.doctor_name.upper()} on {appt.appointment_date} at {appt.appointment_time}"
+    #         for appt in hits
+    #     ]
+    #     return "Appointments:\n" + "\n".join(formatted_hits)
+    # else:
+    #     return "No appointment found."
+    if isinstance(hits, dict):  # error case returned
+        return hits["Message"]
+
+    response_lines = []
+    for appt in hits:
+        response_lines.append(
+            f"- appointment of {appt.patient_name.upper()} with doctor {appt.doctor_name.upper()} "
+            f"on {appt.appointment_date} at {appt.appointment_time}"
+        )
+
+    return "\n".join(response_lines)
+
 
 
 TOOLS = {
+    "RetrieveProvidersList": tool_retrieve_providers,
     "ScheduleAppointment": tool_schedule,
     "RescheduleAppointment": tool_reschedule,
     "CancelAppointment": tool_cancel,
@@ -212,12 +268,12 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
             errors.append(f"Missing parameter: {key}")
 
     if tool == "ScheduleAppointment":
-        for k in ["doctorName", "patientName", "date", "time"]:
+        for k in ["firstName", "lastName", "date", "time"]:
             need(k)
         if errors: return False, errors, out
 
-        out["doctorName"] = str(params["doctorName"]).strip()
-        out["patientName"] = str(params["patientName"]).strip()
+        out["firstName"] = str(params["firstName"]).strip()
+        out["lastName"] = str(params["lastName"]).strip()
         out["date"] = normalize_date(str(params["date"]), user_msg)
         out["time"] = normalize_time_ampm(str(params["time"]))
 
@@ -228,12 +284,12 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
         return True, [], out
 
     if tool == "RescheduleAppointment":
-        for k in ["doctorName", "patientName", "oldDate", "oldTime", "newDate", "newTime"]:
+        for k in ["firstName", "lastName", "oldDate", "oldTime", "newDate", "newTime"]:
             need(k)
         if errors: return False, errors, out
 
-        out["doctorName"] = str(params["doctorName"]).strip()
-        out["patientName"] = str(params["patientName"]).strip()
+        out["firstName"] = str(params["firstName"]).strip()
+        out["lastName"] = str(params["lastName"]).strip()
         out["oldDate"] = normalize_date(str(params["oldDate"]), user_msg)
         out["oldTime"] = normalize_time_ampm(str(params["oldTime"]))
         out["newDate"] = normalize_date(str(params["newDate"]), user_msg)
@@ -257,11 +313,17 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
         return True, [], out
 
     if tool == "ViewAppointment":
-        need("patientName")
+        need("patient_firstName")
+        need("patient_lastName")
         if errors: return False, errors, out
-        out["patientName"] = str(params["patientName"]).strip()
+        out["patient_firstName"] = str(params["patient_firstName"]).strip()
+        out["patient_lastName"] = str(params["patient_lastName"]).strip()
         if params.get("date"):
             out["date"] = normalize_date(str(params["date"]), user_msg)
+        return True, [], out
+    
+    if tool == "RetrieveProvidersList":
+        # No required parameters for now
         return True, [], out
 
     errors.append("Unknown tool.")
