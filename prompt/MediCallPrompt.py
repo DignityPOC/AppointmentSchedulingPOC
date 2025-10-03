@@ -77,11 +77,11 @@ TOOLS and REQUIRED PARAMETERS (strict):
                gender (string), providerId (string), date (YYYY-MM-DD),
                time (HH:MM AM/PM), email (string), phoneNumber (string), address (string)
 3) Tool: RescheduleAppointment
-   Parameters: firstName (string), lastName (string),
+   Parameters: providerName (string), firstName (string), lastName (string),
                oldDate (YYYY-MM-DD), oldTime (HH:MM AM/PM),
                newDate (YYYY-MM-DD), newTime (HH:MM AM/PM)
 4) Tool: CancelAppointment
-   Parameters: doctorName (string), patientName (string), date (YYYY-MM-DD), time (HH:MM AM/PM)
+   Parameters: firstName (string), dateOfBirth (YYYY-MM-DD)
 5) Tool: ViewAppointment
    Parameters: patient_firstName (string), patient_lastName (string), date (optional, YYYY-MM-DD)
 
@@ -135,43 +135,36 @@ def tool_schedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
         "phone_number": params.get("phoneNumber", "").lower() if params.get("phoneNumber") else "",
         "address": params.get("address", "").lower() if params.get("address") else "",
     }
-
     req = types.SimpleNamespace(**requestattr)
     manager = AppointmentAndPatientManager()
+    print("schedule request = "+ str(req))
     return manager.schedule_appointment_with_detail(req)["Message"]
 
 @traceable(run_type="tool", name="RescheduleAppointment")
 def tool_reschedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    requestattr = {
-        "first_name": params["firstName"].lower(),
-        "last_name": params["lastName"].lower(),
-        "old_date": params["oldDate"].lower(),
-        "old_time": params["oldTime"].lower(),
-        "new_date": params["newDate"].lower(),
-        "new_time": params["newTime"].lower(),
-    }
-    req = types.SimpleNamespace(**requestattr)
-    manager = AppointmentAndPatientManager()
-    return manager.reschedule_appointment(req)["Message"]
+        provider_name = params["providerName"].lower()
+        patient_first_name = params["firstName"].lower()
+        patient_last_name = params["lastName"].lower()
+        new_date = params["newDate"].lower()
+        new_time = params["newTime"].lower()
+        
+        manager = AppointmentAndPatientManager()
+        return manager.reschedule_appointment(provider_name, patient_first_name, patient_last_name, new_date, new_time)["Message"]
 
 @traceable(run_type="tool", name="CancelAppointment")
 def tool_cancel(state: Dict[str, Any], params: Dict[str, str]) -> str:
-        requestattr = {
-            "patient_name": params["patientName"].lower(),
-            "doctor_name": params["doctorName"].lower(),
-        }
-            # Convert dict into an object with attributes
-        request = types.SimpleNamespace(**requestattr)
-        manager = AppointmentManager()
-        return manager.cancel_appointment(request)["Message"]
+        first_name = params["firstName"].lower()
+        dob = params["dateOfBirth"].lower()
+        manager = AppointmentAndPatientManager()
+        return manager.cancel_appointment(first_name, dob)["Message"]
 
 @traceable(run_type="tool", name="ViewAppointment")
 def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
-    first_name = params["patient_firstName"]
-    last_name = params["patient_lastName"]
+    first_name = params["patient_firstName"].lower()
+    last_name = params["patient_lastName"].lower()
     manager = AppointmentAndPatientManager()
     hits = manager.get_appointments_by_patient_Name(first_name, last_name)
-
+    print(hits)
     # if hits:
     #     # Convert each Appointment object into a string representation
     #     formatted_hits = [
@@ -192,8 +185,6 @@ def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
         )
 
     return "\n".join(response_lines)
-
-
 
 TOOLS = {
     "RetrieveProvidersList": tool_retrieve_providers,
@@ -274,6 +265,12 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
 
         out["firstName"] = str(params["firstName"]).strip()
         out["lastName"] = str(params["lastName"]).strip()
+        out["gender"] = str(params["gender"]).strip()
+        out["dateOfBirth"] = str(params["dateOfBirth"]).strip()
+        out["providerId"] = str(params["providerId"]).strip()
+        out["email"] = str(params["email"]).strip()
+        out["phoneNumber"] = str(params["phoneNumber"]).strip()
+        out["address"] = str(params["address"]).strip()
         out["date"] = normalize_date(str(params["date"]), user_msg)
         out["time"] = normalize_time_ampm(str(params["time"]))
 
@@ -284,10 +281,11 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
         return True, [], out
 
     if tool == "RescheduleAppointment":
-        for k in ["firstName", "lastName", "oldDate", "oldTime", "newDate", "newTime"]:
+        for k in ["providerName","firstName", "lastName", "oldDate", "oldTime", "newDate", "newTime"]:
             need(k)
         if errors: return False, errors, out
-
+        
+        out["providerName"] = str(params["providerName"]).strip()
         out["firstName"] = str(params["firstName"]).strip()
         out["lastName"] = str(params["lastName"]).strip()
         out["oldDate"] = normalize_date(str(params["oldDate"]), user_msg)
@@ -302,14 +300,12 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
         return True, [], out
 
     if tool == "CancelAppointment":
-        for k in ["doctorName", "patientName", "date", "time"]:
+        for k in ["firstName", "dateOfBirth"]:
             need(k)
         if errors: return False, errors, out
 
-        out["doctorName"] = str(params["doctorName"]).strip()
-        out["patientName"] = str(params["patientName"]).strip()
-        out["date"] = normalize_date(str(params["date"]), user_msg)
-        out["time"] = normalize_time_ampm(str(params["time"]))
+        out["firstName"] = str(params["firstName"]).strip()
+        out["dateOfBirth"] = str(params["dateOfBirth"]).strip()
         return True, [], out
 
     if tool == "ViewAppointment":

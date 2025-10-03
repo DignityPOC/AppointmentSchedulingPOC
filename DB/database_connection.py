@@ -86,7 +86,7 @@ class AppointmentAndPatientManager:
         return providers_db
 
     def get_provider_by_id(self, provider_id):
-        self.cursor.execute("SELECT * FROM providers WHERE provider_id = ?", (provider_id))
+        self.cursor.execute("SELECT * FROM providers WHERE provider_id = ?", (provider_id,))
         row = self.cursor.fetchone()
         provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
         return provider
@@ -256,10 +256,19 @@ class AppointmentAndPatientManager:
         row = self.cursor.fetchone()
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
                           gender=row[5], phone_number=row[6], address=row[7])
+        if patient is None:
+            return {
+                "Message": f"No patient found with the name {patient_first_name} and dob {patient_dob}."
+            }
+        # Now check if appointment exists for this patient
         self.cursor.execute(
             "SELECT * FROM appointments WHERE patient_id = ?",
-            (patient.id))
+            (patient.id,))
         row = self.cursor.fetchone()
+        if row is None:
+            return {
+                "Message": f"No appointments found for patient {patient_first_name} with dob {patient_dob}."
+            }
         appointments_id = row[0]
         self.cancel_appointment_by_id(appointments_id)
 
