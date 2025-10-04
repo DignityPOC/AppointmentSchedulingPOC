@@ -46,7 +46,7 @@ class ViewAppointmentReq(BaseModel):
 
 class CancelAppointmentReq(BaseModel):
         first_name: str
-        date_of_birth: str
+        phone_number: str
 
 class PatientVerificationByPhone(BaseModel):
     first_name: str = Field(min_length=1, max_length=50)

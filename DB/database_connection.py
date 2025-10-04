@@ -80,7 +80,8 @@ class AppointmentAndPatientManager:
         providers_db = []
 
         for row in rows:
-            provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
+            providerName = "Dr. " + row[1]
+            provider = Provider(id=row[0], provider_name=providerName, location=row[2], speciality=row[3], slots=row[4])
             providers_db.append(provider)
 
         return providers_db
@@ -249,16 +250,16 @@ class AppointmentAndPatientManager:
                 "Message": f"Appointment of patient {patient_first_name} {patient_last_name} with doctor {provider_name} updated to {new_date} at {new_time}"
             }
 
-    def cancel_appointment(self, patient_first_name, patient_dob):
+    def cancel_appointment(self, patient_first_name, patient_phone_number):
         self.cursor.execute(
-            "SELECT * FROM patients WHERE first_name like ? AND date_of_birth = ?",
-            (patient_first_name, patient_dob))
+            "SELECT * FROM patients WHERE first_name like ? AND phone_number = ?",
+            (patient_first_name, patient_phone_number))
         row = self.cursor.fetchone()
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
                           gender=row[5], phone_number=row[6], address=row[7])
         if patient is None:
             return {
-                "Message": f"No patient found with the name {patient_first_name} and dob {patient_dob}."
+                "Message": f"No patient found with the name {patient_first_name} and phone no. {patient_phone_number}."
             }
         # Now check if appointment exists for this patient
         self.cursor.execute(
@@ -270,7 +271,7 @@ class AppointmentAndPatientManager:
                 "Message": f"No appointments found for patient {patient_first_name} with dob {patient_dob}."
             }
         appointments_id = row[0]
-        self.cancel_appointment_by_id(appointments_id)
+        return self.cancel_appointment_by_id(appointments_id)
 
     def cancel_appointment_by_id(self, appointment_id):
         self.cursor.execute("DELETE FROM appointments WHERE appointment_id = ?", (appointment_id,))
