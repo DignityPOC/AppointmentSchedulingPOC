@@ -271,12 +271,12 @@ class AppointmentAndPatientManager:
                 "Message": f"No appointments found for patient {patient_first_name} with dob {patient_dob}."
             }
         appointments_id = row[0]
-        return self.cancel_appointment_by_id(appointments_id)
+        return self.cancel_appointment_by_id(appointments_id, patient_first_name)
 
-    def cancel_appointment_by_id(self, appointment_id):
+    def cancel_appointment_by_id(self, appointment_id, patient_first_name):
         self.cursor.execute("DELETE FROM appointments WHERE appointment_id = ?", (appointment_id,))
         self.conn.commit()
-        return {"Message": f"Appointment ID {appointment_id} cancelled."}
+        return {"Message": f"Appointment cancelled for patient {patient_first_name}."}
 
     def close_connection(self):
         self.conn.close()

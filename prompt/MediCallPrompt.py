@@ -81,7 +81,7 @@ TOOLS and REQUIRED PARAMETERS (strict):
                oldDate (YYYY-MM-DD), oldTime (HH:MM AM/PM),
                newDate (YYYY-MM-DD), newTime (HH:MM AM/PM)
 4) Tool: CancelAppointment
-   Parameters: firstName (string), dateOfBirth (YYYY-MM-DD)
+   Parameters: firstName (string), phoneNumber (string)
 5) Tool: ViewAppointment
    Parameters: patient_firstName (string), patient_lastName (string), date (optional, YYYY-MM-DD)
 
@@ -154,9 +154,9 @@ def tool_reschedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
 @traceable(run_type="tool", name="CancelAppointment")
 def tool_cancel(state: Dict[str, Any], params: Dict[str, str]) -> str:
         first_name = params["firstName"].lower()
-        dob = params["dateOfBirth"].lower()
+        phone_number = params["phoneNumber"].lower()
         manager = AppointmentAndPatientManager()
-        return manager.cancel_appointment(first_name, dob)["Message"]
+        return manager.cancel_appointment(first_name, phone_number)["Message"]
 
 @traceable(run_type="tool", name="ViewAppointment")
 def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
@@ -300,12 +300,12 @@ def validate_and_normalize_params(tool: str, params: Dict[str, Any], user_msg: s
         return True, [], out
 
     if tool == "CancelAppointment":
-        for k in ["firstName", "dateOfBirth"]:
+        for k in ["firstName", "phoneNumber"]:
             need(k)
         if errors: return False, errors, out
 
         out["firstName"] = str(params["firstName"]).strip()
-        out["dateOfBirth"] = str(params["dateOfBirth"]).strip()
+        out["phoneNumber"] = str(params["phoneNumber"]).strip()
         return True, [], out
 
     if tool == "ViewAppointment":
