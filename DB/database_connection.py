@@ -255,12 +255,13 @@ class AppointmentAndPatientManager:
             "SELECT * FROM patients WHERE first_name like ? AND phone_number = ?",
             (patient_first_name, patient_phone_number))
         row = self.cursor.fetchone()
-        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
-                          gender=row[5], phone_number=row[6], address=row[7])
-        if patient is None:
+        if row is None:
             return {
                 "Message": f"No patient found with the name {patient_first_name} and phone no. {patient_phone_number}."
             }
+        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
+                          gender=row[5], phone_number=row[6], address=row[7])
+
         # Now check if appointment exists for this patient
         self.cursor.execute(
             "SELECT * FROM appointments WHERE patient_id = ?",
