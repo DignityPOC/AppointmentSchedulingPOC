@@ -92,7 +92,7 @@ class AppointmentAndPatientManager:
         return provider
 
     def get_provider_by_name(self, provider_name):
-        self.cursor.execute("SELECT * FROM providers WHERE provider_name = ?", (provider_name,))
+        self.cursor.execute("SELECT * FROM providers WHERE provider_name like ?", (provider_name,))
         row = self.cursor.fetchone()
         if row is None:
             return None
@@ -100,7 +100,7 @@ class AppointmentAndPatientManager:
         return provider
 
     def get_providers_by_location(self, location):
-        self.cursor.execute("SELECT * FROM providers WHERE location = ?", (location,))
+        self.cursor.execute("SELECT * FROM providers WHERE location like ?", (location,))
         rows = self.cursor.fetchall()
 
         providers_db = []
@@ -111,7 +111,7 @@ class AppointmentAndPatientManager:
         return providers_db
 
     def get_providers_by_speciality(self, speciality):
-        self.cursor.execute("SELECT * FROM providers WHERE speciality = ?", (speciality,))
+        self.cursor.execute("SELECT * FROM providers WHERE speciality like ?", (speciality,))
         rows = self.cursor.fetchall()
 
         providers_db = []
@@ -164,7 +164,7 @@ class AppointmentAndPatientManager:
         return patient
 
     def get_patient_by_name(self, first_name, last_name):
-        self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ?", (first_name, last_name,))
+        self.cursor.execute("SELECT * FROM patients WHERE first_name like ? AND last_name like ?", (first_name, last_name,))
         row = self.cursor.fetchone()
         if row is None:
             return None
@@ -178,13 +178,13 @@ class AppointmentAndPatientManager:
         return provider
 
     def verify_patient_by_phone_and_dob(self, patient_data):
-        self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ? AND phone_number = ? AND date_of_birth = ?", (patient_data.first_name, patient_data.last_name, patient_data.phone_number, patient_data.date_of_birth))
+        self.cursor.execute("SELECT * FROM patients WHERE first_name like ? AND last_name like ? AND phone_number = ? AND date_of_birth = ?", (patient_data.first_name, patient_data.last_name, patient_data.phone_number, patient_data.date_of_birth))
         row = self.cursor.fetchone()
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
         return patient
 
     def verify_patient_by_phone(self, patient_first_name, patient_last_name, patient_phone_no):
-        self.cursor.execute("SELECT * FROM patients WHERE first_name = ? AND last_name = ? AND phone_number = ?", (patient_first_name, patient_last_name, patient_phone_no))
+        self.cursor.execute("SELECT * FROM patients WHERE first_name like ? AND last_name like ? AND phone_number = ?", (patient_first_name, patient_last_name, patient_phone_no))
         row = self.cursor.fetchone()
         if row is None:
             return 0
@@ -251,7 +251,7 @@ class AppointmentAndPatientManager:
 
     def cancel_appointment(self, patient_first_name, patient_dob):
         self.cursor.execute(
-            "SELECT * FROM patients WHERE first_name = ? AND date_of_birth = ?",
+            "SELECT * FROM patients WHERE first_name like ? AND date_of_birth = ?",
             (patient_first_name, patient_dob))
         row = self.cursor.fetchone()
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
