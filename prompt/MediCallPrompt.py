@@ -137,7 +137,6 @@ def tool_schedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
     }
     req = types.SimpleNamespace(**requestattr)
     manager = AppointmentAndPatientManager()
-    print("schedule request = "+ str(req))
     return manager.schedule_appointment_with_detail(req)["Message"]
 
 @traceable(run_type="tool", name="RescheduleAppointment")
@@ -164,17 +163,7 @@ def tool_view(state: Dict[str, Any], params: Dict[str, str]) -> str:
     last_name = params["patient_lastName"].lower()
     manager = AppointmentAndPatientManager()
     hits = manager.get_appointments_by_patient_Name(first_name, last_name)
-    print(hits)
-    # if hits:
-    #     # Convert each Appointment object into a string representation
-    #     formatted_hits = [
-    #         f"- appointment of {appt.patient_name.upper()} with doctor {appt.doctor_name.upper()} on {appt.appointment_date} at {appt.appointment_time}"
-    #         for appt in hits
-    #     ]
-    #     return "Appointments:\n" + "\n".join(formatted_hits)
-    # else:
-    #     return "No appointment found."
-    if isinstance(hits, dict):  # error case returned
+    if isinstance(hits, dict): 
         return hits["Message"]
 
     response_lines = []
