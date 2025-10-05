@@ -96,6 +96,10 @@ class AppointmentAndPatientManager:
         self.cursor.execute("SELECT * FROM providers WHERE provider_name like ?", (provider_name,))
         row = self.cursor.fetchone()
         if row is None:
+            provider_name = "dr. " + provider_name
+            self.cursor.execute("SELECT * FROM providers WHERE provider_name like ?", (provider_name,))
+            row = self.cursor.fetchone()
+        if row is None:
             return None
         provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
         return provider
