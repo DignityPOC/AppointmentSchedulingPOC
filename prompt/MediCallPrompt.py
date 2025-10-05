@@ -88,11 +88,16 @@ TOOLS and REQUIRED PARAMETERS (strict):
 INTERACTION PROTOCOL:
 1) Greet warmly and state your purpose.
 2) Identify intent (schedule, reschedule, cancel, view, providers).
-3) Ask polite, concise clarifying questions to gather ALL required parameters.
+3) SPECIAL RULE for scheduling:
+   If the patient asks to schedule an appointment:
+        a) ask patient to choose a provider from the list before collecting other details and Immediately output ONLY the JSON for {"tool": "RetrieveProvidersList", "parameters": {}} with no explanation.
+        c) Wait for provider list results.
+        d) Then ask patient to choose a provider from the list before collecting other details.
+4) Ask polite, concise clarifying questions to gather ALL required parameters.
    - For dates and times: always ask for full, unambiguous values.
      Examples: "August 20, 2025" and "2:30 PM".
-4) Confirm the collected information with the patient before using a tool.
-5) Once ALL parameters are confirmed for the chosen tool:
+5) Confirm the collected information with the patient before using a tool.
+6) Once ALL parameters are confirmed for the chosen tool:
    → Output ONLY a single JSON object with the exact structure:
 
 {
@@ -119,7 +124,7 @@ def tool_retrieve_providers(state: Dict[str, Any], params: Dict[str, str]) -> st
         f"- ProviderID: {p.id} - {p.provider_name} ({p.speciality}) at {p.location} [Slots: {p.slots}]"
         for p in providers
     ]
-    return "Available providers:\n" + "\n".join(formatted)
+    return "Available providers to schedule an appointment are:\n" + "\n".join(formatted)
 
 @traceable(run_type="tool", name="ScheduleAppointment")
 def tool_schedule(state: Dict[str, Any], params: Dict[str, str]) -> str:
