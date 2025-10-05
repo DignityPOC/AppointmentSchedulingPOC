@@ -144,9 +144,9 @@ class AppointmentAndPatientManager:
 
         self.cursor.execute("SELECT * FROM appointments WHERE patient_id = ?", (patient.id,))
         rows = self.cursor.fetchall()
-        if rows is None:
+        if not rows:
             return {
-                "Message": f"No appointments found of patient {patient_first_name} {patient_last_name}."
+                "Message": f"No appointments found for patient {patient_first_name} {patient_last_name}."
             }
 
         appointments_db = []
@@ -170,7 +170,7 @@ class AppointmentAndPatientManager:
         row = self.cursor.fetchone()
         if row is None:
             return None
-        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4], gender=row[5], phone_number=row[6], address=row[7])
+        patient = Patient(id=row[0], first_name=row[1], last_name=row[2], gender=row[3], date_of_birth=row[4], email=row[5], phone_number=row[6], address=row[7])
         return patient
 
     def get_provider_by_id(self, provider_id):
