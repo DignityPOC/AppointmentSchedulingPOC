@@ -221,7 +221,7 @@ class AppointmentAndPatientManager:
                 "INSERT INTO appointments (patient_id, provider_id, appointment_date, appointment_time) VALUES (?, ?, ?, ?)",
                 (patient_id, req.provider_id, req.date, req.time))
             self.conn.commit()
-            return {"Message": f"Appointment scheduled . The appointment id is {self.cursor.lastrowid}."}
+            return {"Message": f"Appointment scheduled for {req.first_name.upper()} {req.last_name.upper()}. The appointment id is {self.cursor.lastrowid}."}
 
         except sqlite3.Error as e:
             return {
@@ -231,13 +231,13 @@ class AppointmentAndPatientManager:
         provider = self.get_provider_by_name(provider_name)
         if provider is None:
             return {
-                "Message": f"No doctor found with the name {provider_name}."
+                "Message": f"No doctor found with the name {provider_name.upper()}."
             }
 
         patient = self.get_patient_by_name(patient_first_name, patient_last_name)
         if patient is None:
             return {
-                "Message": f"No patient found with the name {patient_first_name} {patient_last_name}."
+                "Message": f"No patient found with the name {patient_first_name.upper()} {patient_last_name.upper()}."
             }
 
         self.cursor.execute(
@@ -261,7 +261,7 @@ class AppointmentAndPatientManager:
         row = self.cursor.fetchone()
         if row is None:
             return {
-                "Message": f"No patient found with the name {patient_first_name} and phone no. {patient_phone_number}."
+                "Message": f"No patient found with the name {patient_first_name.upper()} and phone no. {patient_phone_number}."
             }
         patient = Patient(id=row[0], first_name=row[1], last_name=row[2], email=row[3], date_of_birth=row[4],
                           gender=row[5], phone_number=row[6], address=row[7])
@@ -273,7 +273,7 @@ class AppointmentAndPatientManager:
         row = self.cursor.fetchone()
         if row is None:
             return {
-                "Message": f"No appointments found for patient {patient_first_name} with dob {patient_dob}."
+                "Message": f"No appointments found for patient {patient_first_name.upper()} with phone number {patient_phone_number}."
             }
         appointments_id = row[0]
         return self.cancel_appointment_by_id(appointments_id, patient_first_name)
@@ -281,7 +281,7 @@ class AppointmentAndPatientManager:
     def cancel_appointment_by_id(self, appointment_id, patient_first_name):
         self.cursor.execute("DELETE FROM appointments WHERE appointment_id = ?", (appointment_id,))
         self.conn.commit()
-        return {"Message": f"Appointment cancelled for patient {patient_first_name}."}
+        return {"Message": f"Appointment cancelled for patient {patient_first_name.upper()}."}
 
     def close_connection(self):
         self.conn.close()
