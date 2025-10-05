@@ -93,12 +93,9 @@ class AppointmentAndPatientManager:
         return provider
 
     def get_provider_by_name(self, provider_name):
-        self.cursor.execute("SELECT * FROM providers WHERE provider_name like ?", (provider_name,))
+        updated_provider_name = provider_name.replace("dr. ","").replace("Dr. ","");
+        self.cursor.execute("SELECT * FROM providers WHERE provider_name like ?", (updated_provider_name,))
         row = self.cursor.fetchone()
-        if row is None:
-            provider_name = "dr. " + provider_name
-            self.cursor.execute("SELECT * FROM providers WHERE provider_name like ?", (provider_name,))
-            row = self.cursor.fetchone()
         if row is None:
             return None
         provider = Provider(id=row[0], provider_name=row[1], location=row[2], speciality=row[3], slots=row[4])
